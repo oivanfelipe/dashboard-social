@@ -282,9 +282,81 @@ function ClientModal({ initial, onSave, onClose, saving }) {
 }
 
 // ── Metrics Modal ──────────────────────────────────────────
+
+// ── Auto-fetch last post ───────────────────────────────────
+async function fetchLastPost(profileUrl, platform) {
+  if (!profileUrl) return null;
+  try {
+    const proxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(profileUrl);
+    const res = await fetch(proxy, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const { contents } = await res.json();
+    if (!contents) return null;
+
+    // Instagram: look for "taken_at_timestamp" or og:updated_time or time tags
+    if (platform === 'instagram') {
+      // Try JSON in page
+      const tsMatch = contents.match(/"taken_at_timestamp":(\d+)/);
+      if (tsMatch) return new Date(parseInt(tsMatch[1])*1000).toISOString().slice(0,10);
+      // Try time elements
+      const timeMatch = contents.match(/datetime="(20\d{2}-\d{2}-\d{2})/);
+      if (timeMatch) return timeMatch[1];
+      // Try meta og:updated_time
+      const ogMatch = contents.match(/og:updated_time[^>]*content="([^"]+)"/);
+      if (ogMatch) return ogMatch[1].slice(0,10);
+    }
+
+    // LinkedIn: look for published date
+    if (platform === 'linkedin') {
+      const liMatch = contents.match(/(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}/);
+      if (liMatch) return liMatch[1];
+    }
+
+    // Facebook
+    if (platform === 'facebook') {
+      const fbMatch = contents.match(/data-utime="(\d+)"/);
+      if (fbMatch) return new Date(parseInt(fbMatch[1])*1000).toISOString().slice(0,10);
+      const fbMatch2 = contents.match(/"date_created":(\d+)/);
+      if (fbMatch2) return new Date(parseInt(fbMatch2[1])*1000).toISOString().slice(0,10);
+    }
+
+    // TikTok
+    if (platform === 'tiktok') {
+      const ttMatch = contents.match(/"createTime":(\d+)/);
+      if (ttMatch) return new Date(parseInt(ttMatch[1])*1000).toISOString().slice(0,10);
+    }
+
+    // Generic: any ISO date found
+    const genericMatch = contents.match(/(20\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))/);
+    if (genericMatch) return genericMatch[1];
+
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
 function MetricsModal({ client, platform, onSave, onClose, saving }) {
   const [f, setF] = useState({ ...(client.metrics?.[platform]||{}) });
+  const [fetching, setFetching] = useState(false);
+  const [fetchMsg, setFetchMsg] = useState(null);
   const pc = P[platform];
+
+  const handleFetch = async () => {
+    const profileUrl = client.links?.[platform];
+    if (!profileUrl) { setFetchMsg('❌ Nenhum link de perfil cadastrado para esta plataforma.'); return; }
+    setFetching(true);
+    setFetchMsg(null);
+    const date = await fetchLastPost(profileUrl, platform);
+    setFetching(false);
+    if (date) {
+      setF(prev => ({ ...prev, lastPost: date }));
+      setFetchMsg('✅ Data encontrada: ' + new Date(date+'T12:00:00').toLocaleDateString('pt-BR', {day:'2-digit',month:'short',year:'numeric'}));
+    } else {
+      setFetchMsg('⚠️ Não foi possível coletar automaticamente. A plataforma bloqueou o acesso — insira manualmente.');
+    }
+  };
+
   return (
     <div className="modal-overlay" onMouseDown={onClose}>
       <div className="modal" onMouseDown={e=>e.stopPropagation()} style={{ width:420 }}>
@@ -296,6 +368,20 @@ function MetricsModal({ client, platform, onSave, onClose, saving }) {
           <button className="btn btn-ghost" style={{ padding:'5px 10px' }} onClick={onClose}>✕</button>
         </div>
         <div className="form-grid">
+          <div style={{ background:'var(--bg-card2)', border:'1px solid var(--border2)', borderRadius:8, padding:'12px 14px' }}>
+            <div style={{ fontSize:11, color:'var(--text2)', marginBottom:8 }}>
+              {client.links?.[platform] ? <><span style={{color:'var(--gold)'}}>🔗</span> Perfil cadastrado — tente buscar o último post automaticamente.</> : '⚠️ Cadastre o link do perfil no cliente para usar busca automática.'}
+            </div>
+            <button onClick={handleFetch} disabled={fetching || !client.links?.[platform]} style={{
+              display:'flex', alignItems:'center', gap:7, padding:'7px 14px', borderRadius:7,
+              background:'var(--gold)', border:'none', color:'#000', fontSize:12, fontWeight:700,
+              cursor: client.links?.[platform] ? 'pointer' : 'not-allowed',
+              opacity: client.links?.[platform] ? 1 : .4, fontFamily:'inherit'
+            }}>
+              {fetching ? <><span className="spinner" style={{width:12,height:12,borderWidth:1.5,borderTopColor:'#000'}}/> Buscando...</> : '⚡ Buscar último post automaticamente'}
+            </button>
+            {fetchMsg && <div style={{ marginTop:8, fontSize:11, color: fetchMsg.startsWith('✅') ? '#4ade80' : fetchMsg.startsWith('❌') ? '#f87171' : 'var(--text2)' }}>{fetchMsg}</div>}
+          </div>
           {[
             { k:'followers', lbl:'Seguidores', ph:'Ex: 12500' },
             { k:'lastPost',  lbl:'Data do último post', type:'date' },
@@ -538,16 +624,154 @@ function ChecklistTab({ client, onUpdate }) {
   );
 }
 
+
+// ── Global Overview ────────────────────────────────────────
+function GlobalOverview({ clients, onSelectClient }) {
+  const currentMonth = MONTHS[0]; // Agosto 2026
+  const totalClients = clients.length;
+  const totalPlatforms = [...new Set(clients.flatMap(c=>c.platforms||[]))];
+  const publishedThisMonth = clients.filter(c => c.calendar?.[currentMonth.key]?.status === 'Publicado').length;
+  const pendingChecks = clients.reduce((acc,c)=>{
+    const items = c.checklist||[];
+    return acc + items.filter(i=>!i.done).length;
+  }, 0);
+
+  if (clients.length === 0) {
+    return (
+      <div className="empty-state" style={{ height:'100%' }}>
+        <div style={{ fontSize:48 }}>🎯</div>
+        <div style={{ fontSize:18, fontWeight:800 }}>Bem-vindo ao Social Dashboard</div>
+        <div style={{ fontSize:13 }}>Adicione um cliente para começar</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding:24, display:'flex', flexDirection:'column', gap:20 }}>
+      {/* Summary KPIs */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:12 }}>
+        {[
+          { label:'Clientes Ativos', value:totalClients, color:'var(--gold)', icon:'🎯' },
+          { label:'Publicados em '+currentMonth.label, value:publishedThisMonth, color:'#4ade80', icon:'✅' },
+          { label:'Em andamento', value:totalClients-publishedThisMonth, color:'#60a5fa', icon:'🔄' },
+          { label:'Tasks pendentes', value:pendingChecks, color:'#f87171', icon:'📌' },
+        ].map(({ label, value, color, icon }) => (
+          <div key={label} className="card" style={{ textAlign:'center', padding:'18px 14px' }}>
+            <div style={{ fontSize:22, marginBottom:6 }}>{icon}</div>
+            <div className="stat-num" style={{ color }}>{value}</div>
+            <div className="stat-lbl">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Clients table */}
+      <div className="card" style={{ padding:0, overflow:'hidden' }}>
+        <div style={{ padding:'14px 20px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div className="section-title" style={{ margin:0 }}>Clientes — Status {currentMonth.label}</div>
+        </div>
+        <div style={{ overflowX:'auto' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+            <thead>
+              <tr style={{ borderBottom:'1px solid var(--border)' }}>
+                {['Cliente','Plataformas','Status do Mês','Último Post (Instagram)','Checklist','Calendário',''].map(h => (
+                  <th key={h} style={{ padding:'10px 16px', color:'var(--text2)', fontWeight:600, textAlign:'left', whiteSpace:'nowrap', fontSize:11, letterSpacing:'.04em', textTransform:'uppercase' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {clients.map((c, i) => {
+                const calData = c.calendar?.[currentMonth.key] || {};
+                const status = calData.status || 'Não iniciado';
+                const sc = S[status] || S['Não iniciado'];
+                const igMetrics = c.metrics?.instagram || {};
+                const checks = c.checklist || [];
+                const checkDone = checks.filter(x=>x.done).length;
+                const checkTotal = checks.length;
+                const calStatuses = MONTHS.map(m => S[c.calendar?.[m.key]?.status]?.pct ?? 0);
+                const calAvg = Math.round(calStatuses.reduce((a,b)=>a+b,0)/calStatuses.length);
+
+                return (
+                  <tr key={c.id} style={{ borderBottom:i<clients.length-1?'1px solid var(--border)':'none', cursor:'pointer', transition:'background .1s' }}
+                    onClick={()=>onSelectClient(c.id)}
+                    onMouseEnter={e=>e.currentTarget.style.background='var(--bg-hover)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <td style={{ padding:'12px 16px', fontWeight:700, color:'var(--text)' }}>{c.name}</td>
+                    <td style={{ padding:'12px 16px' }}>
+                      <div style={{ display:'flex', gap:5 }}>
+                        {(c.platforms||['instagram']).map(p=><PlatformIcon key={p} p={p} size={14}/>)}
+                      </div>
+                    </td>
+                    <td style={{ padding:'12px 16px' }}><Badge status={status}/></td>
+                    <td style={{ padding:'12px 16px', color:'var(--text2)' }}>
+                      {igMetrics.lastPost ? fmtDate(igMetrics.lastPost) : <span style={{color:'var(--text3)'}}>—</span>}
+                    </td>
+                    <td style={{ padding:'12px 16px' }}>
+                      {checkTotal > 0 ? (
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <div className="progress-bar" style={{ width:60, height:4 }}>
+                            <div className="progress-fill" style={{ width:`${checkTotal?(checkDone/checkTotal)*100:0}%`, background:'#4ade80' }}/>
+                          </div>
+                          <span style={{ color:'var(--text2)', fontSize:11 }}>{checkDone}/{checkTotal}</span>
+                        </div>
+                      ) : <span style={{color:'var(--text3)'}}>—</span>}
+                    </td>
+                    <td style={{ padding:'12px 16px' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <div className="progress-bar" style={{ width:60, height:4 }}>
+                          <div className="progress-fill" style={{ width:`${calAvg}%`, background:calAvg===100?'#4ade80':'var(--gold)' }}/>
+                        </div>
+                        <span style={{ color:'var(--text2)', fontSize:11 }}>{calAvg}%</span>
+                      </div>
+                    </td>
+                    <td style={{ padding:'12px 16px' }}>
+                      <span style={{ color:'var(--text3)', fontSize:11 }}>Ver →</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Platform coverage */}
+      <div className="card">
+        <div className="section-title">Cobertura de Plataformas</div>
+        <div style={{ display:'flex', gap:16, flexWrap:'wrap' }}>
+          {PLATFORMS.map(p => {
+            const count = clients.filter(c=>(c.platforms||[]).includes(p)).length;
+            if (!count) return null;
+            const pc = P[p];
+            return (
+              <div key={p} style={{ display:'flex', alignItems:'center', gap:8, background:'var(--bg-card2)', border:`1px solid ${pc.color}30`, borderRadius:8, padding:'8px 14px' }}>
+                <PlatformIcon p={p} size={16}/>
+                <span style={{ color:pc.color, fontWeight:700, fontSize:13 }}>{pc.label}</span>
+                <span style={{ color:'var(--text3)', fontSize:12 }}>{count} cliente{count!==1?'s':''}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Sidebar ────────────────────────────────────────────────
-function Sidebar({ clients, selectedId, onSelect, onNew, onEdit, onDelete, syncing }) {
+function Sidebar({ clients, selectedId, onSelect, onNew, onEdit, onDelete, onHome, syncing }) {
   return (
     <div className="sidebar">
       <div style={{ padding:'18px 16px 14px', borderBottom:'1px solid var(--border)' }}>
         <div style={{ fontWeight:900, fontSize:14, letterSpacing:'-0.02em', color:'var(--gold)' }}>Social Dashboard</div>
         <div style={{ fontSize:10, color:'var(--text3)', marginTop:2, letterSpacing:'.06em', textTransform:'uppercase' }}>V4 Carvalho & Co</div>
       </div>
-      <div style={{ padding:'10px 10px 8px' }}>
-        <button className="btn btn-gold" style={{ width:'100%', padding:'9px' }} onClick={onNew}>+ Novo Cliente</button>
+      <div style={{ padding:'10px 10px 4px', display:'flex', gap:6 }}>
+        <button onClick={onHome} style={{
+          flex:'0 0 auto', padding:'7px 10px', borderRadius:7, border:'1px solid var(--border2)',
+          background: selectedId===null ? 'var(--bg-hover)' : 'transparent',
+          color: selectedId===null ? 'var(--gold)' : 'var(--text3)',
+          fontSize:13, cursor:'pointer', fontFamily:'inherit', transition:'all .15s'
+        }} title="Visão Geral">🏠</button>
+        <button className="btn btn-gold" style={{ flex:1, padding:'7px' }} onClick={onNew}>+ Novo Cliente</button>
       </div>
       <div className="sidebar-scroll">
         {clients.length === 0 ? (
@@ -600,7 +824,7 @@ function App() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(null); // null = global overview
   const [activeTab, setActiveTab] = useState('overview');
   const [modal, setModal] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -611,7 +835,7 @@ function App() {
       const { data, error } = await db.from('social_clients').select('*').order('created_at');
       if (data && data.length) {
         setClients(data);
-        setSelectedId(data[0].id);
+        // Start on global overview (selectedId stays null)
       }
       setLoading(false);
     })();
@@ -675,15 +899,11 @@ function App() {
         onNew={()=>setModal('new')}
         onEdit={c=>setModal(c)}
         onDelete={deleteClient}
+        onHome={()=>setSelectedId(null)}
       />
       <div className="main">
         {!client ? (
-          <div className="empty-state" style={{ height:'100%' }}>
-            <div style={{ fontSize:48 }}>🎯</div>
-            <div style={{ fontSize:18, fontWeight:800 }}>Bem-vindo ao Social Dashboard</div>
-            <div style={{ fontSize:13 }}>Adicione um cliente para começar</div>
-            <button className="btn btn-gold" style={{ marginTop:8 }} onClick={()=>setModal('new')}>+ Adicionar primeiro cliente</button>
-          </div>
+          <GlobalOverview clients={clients} onSelectClient={id=>{setSelectedId(id);setActiveTab('overview');}}/>
         ) : (
           <>
             <div style={{ padding:'20px 24px 0', borderBottom:'1px solid var(--border)', position:'sticky', top:0, background:'var(--bg)', zIndex:10 }}>
