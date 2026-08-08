@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Social Dashboard — V4 Carvalho & Co</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #07070f; --bg-card: #0d0d1a; --bg-card2: #121220;
+      --bg-hover: #16162a; --border: #1a1a30; --border2: #222238;
+      --text: #eeeeff; --text2: #7878a0; --text3: #404060;
+      --gold: #c8a43c; --gold2: #e8c855;
+    }
+    html, body { height: 100%; overflow: hidden; }
+    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; display: flex; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    #root { width: 100%; display: flex; height: 100vh; }
+    .sidebar { width: 250px; min-width: 250px; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    .sidebar-scroll { flex: 1; overflow-y: auto; padding: 8px; }
+    .main { flex: 1; overflow-y: auto; height: 100vh; }
+    button { font-family: inherit; cursor: pointer; }
+    .btn { border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; transition: all .15s; }
+    .btn-gold { background: var(--gold); color: #000; }
+    .btn-gold:hover { background: var(--gold2); }
+    .btn-gold:disabled { opacity: .5; cursor: default; }
+    .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border2); }
+    .btn-ghost:hover { background: var(--bg-hover); color: var(--text); }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    input, textarea, select { background: var(--bg-card2); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); padding: 9px 13px; font-size: 13px; font-family: inherit; outline: none; width: 100%; transition: border-color .15s; }
+    input:focus, textarea:focus, select:focus { border-color: var(--gold); }
+    select option { background: #16162a; }
+    label { font-size: 11px; color: var(--text2); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 200; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+    .modal { background: var(--bg-card); border: 1px solid var(--border2); border-radius: 16px; padding: 28px; width: 580px; max-width: 96vw; max-height: 92vh; overflow-y: auto; }
+    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .tab-bar { display: flex; border-bottom: 1px solid var(--border); }
+    .tab { padding: 13px 16px; font-size: 13px; font-weight: 500; color: var(--text3); cursor: pointer; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; transition: all .15s; font-family: inherit; }
+    .tab:hover { color: var(--text2); }
+    .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+    .metric-box { background: var(--bg-card2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .link-pill { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; background: var(--bg-card2); border: 1px solid var(--border2); border-radius: 8px; font-size: 12px; color: var(--text2); text-decoration: none; transition: all .15s; }
+    .link-pill:hover { border-color: var(--gold); color: var(--gold); }
+    .progress-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 2px; transition: width .4s; }
+    .check-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--bg-card2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color .15s; user-select: none; }
+    .check-item:hover { border-color: var(--border2); }
+    .check-box { width: 18px; height: 18px; min-width: 18px; border-radius: 5px; border: 2px solid var(--border2); display: flex; align-items: center; justify-content: center; transition: all .15s; }
+    .check-box.done { background: #4ade80; border-color: #4ade80; }
+    .client-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; border: 1px solid transparent; transition: all .15s; }
+    .client-item:hover { background: var(--bg-hover); }
+    .client-item.active { background: var(--bg-hover); border-color: var(--border2); }
+    .section-title { font-size: 11px; color: var(--text2); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 14px; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text3); padding: 60px 20px; }
+    .stat-num { font-size: 26px; font-weight: 800; line-height: 1; }
+    .stat-lbl { font-size: 11px; color: var(--text2); margin-top: 3px; }
+    .form-row { display: flex; flex-direction: column; gap: 6px; }
+    .form-grid { display: flex; flex-direction: column; gap: 14px; }
+    .icon-btn { background: none; border: none; color: var(--text3); font-size: 14px; padding: 3px 6px; border-radius: 4px; transition: all .15s; }
+    .icon-btn:hover { color: var(--text2); background: var(--bg-hover); }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border2); border-top-color: var(--gold); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; display: inline-block; }
+    .sync-dot.syncing { background: var(--gold); animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ── Supabase ───────────────────────────────────────────────
+const SUPA_URL = 'https://mzwynanvhojzyoirvxkc.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16d3luYW52aG9qenlvaXJ2eGtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5Mjc3NjEsImV4cCI6MjEwMTUwMzc2MX0.UniVWAVDJgyHo8QGlqXjMeTBulsjEDdZ5nyBWowYO2s';
+const db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// ── Constants ──────────────────────────────────────────────
+const PLATFORMS = ['instagram','linkedin','facebook','tiktok'];
+const P = {
+  instagram: { label:'Instagram', color:'#e1306c' },
+  linkedin:  { label:'LinkedIn',  color:'#0a66c2' },
+  facebook:  { label:'Facebook',  color:'#1877f2' },
+  tiktok:    { label:'TikTok',    color:'#ff0050' },
+};
+
+const STATUSES = [
+  'Não iniciado','Iniciado calendário','Calendário em aprovação',
+  'Aprovado calendário','Em produção','Envio cliente artes',
+  'Aprovado final','Para publicação','Publicado',
+];
+
+const S = {
+  'Não iniciado':            { bg:'rgba(107,114,128,.14)', text:'#9ca3af', dot:'#6b7280', pct:0 },
+  'Iniciado calendário':     { bg:'rgba(59,130,246,.14)',  text:'#60a5fa', dot:'#3b82f6', pct:12 },
+  'Calendário em aprovação': { bg:'rgba(245,158,11,.14)',  text:'#fcd34d', dot:'#f59e0b', pct:25 },
+  'Aprovado calendário':     { bg:'rgba(16,185,129,.14)',  text:'#6ee7b7', dot:'#10b981', pct:37 },
+  'Em produção':             { bg:'rgba(249,115,22,.14)',  text:'#fb923c', dot:'#f97316', pct:50 },
+  'Envio cliente artes':     { bg:'rgba(139,92,246,.14)',  text:'#c4b5fd', dot:'#8b5cf6', pct:62 },
+  'Aprovado final':          { bg:'rgba(5,150,105,.18)',   text:'#34d399', dot:'#059669', pct:75 },
+  'Para publicação':         { bg:'rgba(14,165,233,.14)',  text:'#38bdf8', dot:'#0ea5e9', pct:87 },
+  'Publicado':               { bg:'rgba(74,222,128,.15)',  text:'#4ade80', dot:'#16a34a', pct:100 },
+};
+
+const MONTHS = [
+  { key:'2026-08', label:'Agosto',    year:'2026' },
+  { key:'2026-09', label:'Setembro',  year:'2026' },
+  { key:'2026-10', label:'Outubro',   year:'2026' },
+  { key:'2026-11', label:'Novembro',  year:'2026' },
+  { key:'2026-12', label:'Dezembro',  year:'2026' },
+];
+
+const OP_LINKS = [
+  { key:'calendar', emoji:'📅', label:'Calendário de Conteúdo' },
+  { key:'tasks',    emoji:'✅', label:'Tarefas / Projeto' },
+  { key:'ppt',      emoji:'🎨', label:'Criativos (PPT)' },
+];
+
+// ── Helpers ────────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2)+Date.now().toString(36);
+
+function fmtNum(v) {
+  const n = Number(String(v).replace(/\D/g,''));
+  if (!n && n!==0) return '—';
+  if (n>=1e6) return (n/1e6).toFixed(1).replace('.0','')+'M';
+  if (n>=1e3) return (n/1e3).toFixed(1).replace('.0','')+'K';
+  return n.toLocaleString('pt-BR');
+}
+
+function fmtDate(v) {
+  if (!v) return null;
+  try { return new Date(v+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}); }
+  catch { return v; }
+}
+
+function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+
+function newClient() {
+  return {
+    id: uid(), name: '', platforms: ['instagram'],
+    links: { instagram:'', linkedin:'', facebook:'', tiktok:'', calendar:'', tasks:'', ppt:'' },
+    metrics: Object.fromEntries(PLATFORMS.map(p=>[p,{followers:'',lastPost:'',likes:'',comments:'',updatedAt:null}])),
+    calendar: Object.fromEntries(MONTHS.map(m=>[m.key,{status:'Não iniciado',notes:''}])),
+    checklist: [],
+  };
+}
+
+// ── Icons ──────────────────────────────────────────────────
+function IcoInstagram({ size=18 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <rect x="2" y="2" width="20" height="20" rx="5" stroke="#e1306c" strokeWidth="2.2"/>
+    <circle cx="12" cy="12" r="4.5" stroke="#e1306c" strokeWidth="2.2"/>
+    <circle cx="17.5" cy="6.5" r="1.2" fill="#e1306c"/>
+  </svg>;
+}
+function IcoLinkedIn({ size=18 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="#0a66c2">
+    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/>
+    <rect x="2" y="9" width="4" height="12"/>
+    <circle cx="4" cy="4" r="2"/>
+  </svg>;
+}
+function IcoFacebook({ size=18 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="#1877f2">
+    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+  </svg>;
+}
+function IcoTikTok({ size=18 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="#ff0050">
+    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 1 1-4.07-2.67V9.6a6.34 6.34 0 1 0 5.52 6.24V8.69a8.2 8.2 0 0 0 4.78 1.52V6.76a4.85 4.85 0 0 1-1.01-.07z"/>
+  </svg>;
+}
+function IcoExternal({ size=12 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+    <polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/>
+  </svg>;
+}
+function IcoCheck({ size=10 }) {
+  return <svg width={size} height={size} viewBox="0 0 12 10" fill="none">
+    <path d="M1 5L4.5 8.5L11 1" stroke="#000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>;
+}
+
+function PlatformIcon({ p, size=18 }) {
+  const icons = { instagram:<IcoInstagram size={size}/>, linkedin:<IcoLinkedIn size={size}/>, facebook:<IcoFacebook size={size}/>, tiktok:<IcoTikTok size={size}/> };
+  return icons[p] || null;
+}
+
+function Badge({ status }) {
+  const c = S[status] || S['Não iniciado'];
+  return (
+    <span className="badge" style={{ background:c.bg, color:c.text }}>
+      <span style={{ width:7, height:7, borderRadius:'50%', background:c.dot, display:'inline-block', flexShrink:0 }}/>
+      {status}
+    </span>
+  );
+}
+
+// ── Client Modal ───────────────────────────────────────────
+function ClientModal({ initial, onSave, onClose, saving }) {
+  const [f, setF] = useState(() => initial ? deepClone(initial) : newClient());
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const setLink = (k, v) => setF(p => ({ ...p, links: { ...p.links, [k]: v } }));
+  const togglePlatform = p => {
+    setF(prev => {
+      const has = prev.platforms.includes(p);
+      return { ...prev, platforms: has ? prev.platforms.filter(x=>x!==p) : [...prev.platforms, p] };
+    });
+  };
+
+  return (
+    <div className="modal-overlay" onMouseDown={onClose}>
+      <div className="modal" onMouseDown={e=>e.stopPropagation()}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24 }}>
+          <h2 style={{ fontSize:17, fontWeight:800 }}>{initial ? 'Editar Cliente' : 'Novo Cliente'}</h2>
+          <button className="btn btn-ghost" style={{ padding:'5px 10px' }} onClick={onClose}>✕</button>
+        </div>
+        <div className="form-grid">
+          <div className="form-row">
+            <label>Nome do Cliente *</label>
+            <input value={f.name} onChange={e=>set('name',e.target.value)} placeholder="Ex: Marca XYZ" autoFocus/>
+          </div>
+          <div className="form-row">
+            <label>Plataformas Ativas</label>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              {PLATFORMS.map(p => {
+                const active = f.platforms.includes(p);
+                return (
+                  <button key={p} onClick={()=>togglePlatform(p)} style={{
+                    display:'flex', alignItems:'center', gap:6, padding:'7px 13px', borderRadius:8,
+                    border:`1.5px solid ${active ? P[p].color : 'var(--border2)'}`,
+                    background: active ? `${P[p].color}18` : 'var(--bg-card2)',
+                    color: active ? P[p].color : 'var(--text2)',
+                    fontSize:12, fontWeight:600, cursor:'pointer', transition:'all .15s'
+                  }}>
+                    <PlatformIcon p={p} size={14}/> {P[p].label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="form-row">
+            <label>Links de Perfis</label>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {f.platforms.map(p => (
+                <div key={p} style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <span style={{ width:24, display:'flex', justifyContent:'center' }}><PlatformIcon p={p} size={16}/></span>
+                  <input value={f.links[p]||''} onChange={e=>setLink(p,e.target.value)} placeholder={`URL do perfil ${P[p].label}`}/>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="form-row">
+            <label>Links Operacionais</label>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {OP_LINKS.map(({ key, emoji, label }) => (
+                <div key={key} style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <span style={{ fontSize:15, width:24, textAlign:'center' }}>{emoji}</span>
+                  <input value={f.links[key]||''} onChange={e=>setLink(key,e.target.value)} placeholder={label}/>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:26, paddingTop:20, borderTop:'1px solid var(--border)' }}>
+          <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancelar</button>
+          <button className="btn btn-gold" onClick={()=>{ if(f.name.trim()) onSave(f); }} disabled={!f.name.trim() || saving} style={{ display:'flex', alignItems:'center', gap:8 }}>
+            {saving ? <><span className="spinner" style={{ width:13, height:13, borderWidth:1.5 }}/> Salvando...</> : (initial ? 'Salvar Alterações' : '+ Adicionar Cliente')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Metrics Modal ──────────────────────────────────────────
+function MetricsModal({ client, platform, onSave, onClose, saving }) {
+  const [f, setF] = useState({ ...(client.metrics?.[platform]||{}) });
+  const pc = P[platform];
+  return (
+    <div className="modal-overlay" onMouseDown={onClose}>
+      <div className="modal" onMouseDown={e=>e.stopPropagation()} style={{ width:420 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:22 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <PlatformIcon p={platform} size={20}/>
+            <h2 style={{ fontSize:15, fontWeight:800 }}>Atualizar {pc.label}</h2>
+          </div>
+          <button className="btn btn-ghost" style={{ padding:'5px 10px' }} onClick={onClose}>✕</button>
+        </div>
+        <div className="form-grid">
+          {[
+            { k:'followers', lbl:'Seguidores', ph:'Ex: 12500' },
+            { k:'lastPost',  lbl:'Data do último post', type:'date' },
+            { k:'likes',     lbl:'Curtidas (último post)', ph:'Ex: 342' },
+            { k:'comments',  lbl:'Comentários (último post)', ph:'Ex: 28' },
+          ].map(({ k, lbl, ph, type }) => (
+            <div key={k} className="form-row">
+              <label>{lbl}</label>
+              <input type={type||'text'} value={f[k]||''} onChange={e=>setF(p=>({...p,[k]:e.target.value}))} placeholder={ph||''}/>
+            </div>
+          ))}
+        </div>
+        <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:22, paddingTop:18, borderTop:'1px solid var(--border)' }}>
+          <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancelar</button>
+          <button className="btn btn-gold" onClick={()=>onSave({...f, updatedAt:new Date().toISOString()})} disabled={saving} style={{ display:'flex', alignItems:'center', gap:8 }}>
+            {saving ? <><span className="spinner" style={{ width:13, height:13, borderWidth:1.5 }}/> Salvando...</> : 'Salvar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Overview Tab ───────────────────────────────────────────
+function OverviewTab({ client, onUpdateMetrics }) {
+  const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const active = client.platforms || ['instagram'];
+  const opLinks = OP_LINKS.filter(l => client.links?.[l.key]);
+
+  return (
+    <div style={{ padding:24, display:'flex', flexDirection:'column', gap:20 }}>
+      {opLinks.length > 0 && (
+        <div className="card">
+          <div className="section-title">Links Operacionais</div>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            {opLinks.map(({ key, emoji, label }) => (
+              <a key={key} href={client.links[key]} target="_blank" rel="noopener noreferrer" className="link-pill">
+                {emoji} {label} <IcoExternal/>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+      <div>
+        <div className="section-title">Métricas por Plataforma</div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))', gap:12 }}>
+          {active.map(p => {
+            const m = client.metrics?.[p] || {};
+            const pc = P[p];
+            const hasData = m.followers || m.likes || m.comments;
+            return (
+              <div key={p} className="metric-box">
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                    <PlatformIcon p={p} size={17}/>
+                    <span style={{ fontWeight:700, fontSize:13, color:pc.color }}>{pc.label}</span>
+                  </div>
+                  <div style={{ display:'flex', gap:5, alignItems:'center' }}>
+                    {client.links?.[p] && (
+                      <a href={client.links[p]} target="_blank" rel="noopener noreferrer" className="link-pill" style={{ padding:'3px 8px', fontSize:10 }}>
+                        Perfil <IcoExternal size={10}/>
+                      </a>
+                    )}
+                    <button className="icon-btn" onClick={()=>setEditing(p)}>✎</button>
+                  </div>
+                </div>
+                {hasData ? (
+                  <>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:12 }}>
+                      {[{ lbl:'Seguidores', v:m.followers },{ lbl:'Curtidas', v:m.likes },{ lbl:'Comentários', v:m.comments }].map(({ lbl, v }) => (
+                        <div key={lbl} style={{ textAlign:'center' }}>
+                          <div style={{ fontSize:20, fontWeight:800, color:pc.color }}>{fmtNum(v)}</div>
+                          <div style={{ fontSize:9, color:'var(--text2)', marginTop:2, textTransform:'uppercase', letterSpacing:'.04em' }}>{lbl}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {(m.lastPost || m.updatedAt) && (
+                      <div style={{ fontSize:10, color:'var(--text3)', borderTop:'1px solid var(--border)', paddingTop:9 }}>
+                        {m.lastPost && <span>Último post: <span style={{ color:'var(--text2)' }}>{fmtDate(m.lastPost)}</span></span>}
+                        {m.updatedAt && <span> · Atualizado: <span style={{ color:'var(--text2)' }}>{fmtDate(m.updatedAt.slice(0,10))}</span></span>}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ textAlign:'center', padding:'18px 0', color:'var(--text3)' }}>
+                    <div style={{ fontSize:26, marginBottom:6 }}>📊</div>
+                    <div style={{ fontSize:12 }}>Nenhuma métrica ainda</div>
+                    <button onClick={()=>setEditing(p)} style={{ marginTop:10, background:`${pc.color}18`, border:`1px solid ${pc.color}40`, borderRadius:6, padding:'5px 13px', color:pc.color, fontSize:11, cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>+ Adicionar</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {editing && (
+        <MetricsModal
+          client={client} platform={editing} saving={saving}
+          onSave={async m => { setSaving(true); await onUpdateMetrics(editing, m); setSaving(false); setEditing(null); }}
+          onClose={()=>setEditing(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Calendar Tab ───────────────────────────────────────────
+function CalendarTab({ client, onUpdate }) {
+  const cal = client.calendar || {};
+  const published = MONTHS.filter(m => cal[m.key]?.status === 'Publicado').length;
+
+  return (
+    <div style={{ padding:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 3fr', gap:12, marginBottom:24 }}>
+        <div className="card" style={{ textAlign:'center' }}>
+          <div className="stat-num" style={{ color:'#4ade80' }}>{published}</div>
+          <div className="stat-lbl">Publicados</div>
+        </div>
+        <div className="card" style={{ textAlign:'center' }}>
+          <div className="stat-num" style={{ color:'#60a5fa' }}>{MONTHS.length - published}</div>
+          <div className="stat-lbl">Em andamento</div>
+        </div>
+        <div className="card" style={{ display:'flex', flexDirection:'column', justifyContent:'center', gap:8 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'var(--text2)' }}>
+            <span>Progresso Geral</span>
+            <span style={{ fontWeight:700 }}>{Math.round((published/MONTHS.length)*100)}%</span>
+          </div>
+          <div className="progress-bar" style={{ height:5 }}>
+            <div className="progress-fill" style={{ width:`${(published/MONTHS.length)*100}%`, background:'#4ade80' }}/>
+          </div>
+          <div style={{ display:'flex', gap:4 }}>
+            {MONTHS.map(m => { const c = S[cal[m.key]?.status||'Não iniciado']; return <span key={m.key} title={`${m.label}: ${cal[m.key]?.status||'Não iniciado'}`} style={{ width:22, height:6, borderRadius:3, background:c.dot, opacity:.8 }}/>; })}
+          </div>
+        </div>
+      </div>
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {MONTHS.map(month => {
+          const data = cal[month.key] || { status:'Não iniciado', notes:'' };
+          const sc = S[data.status] || S['Não iniciado'];
+          return (
+            <div key={month.key} className="card" style={{ borderLeft:`3px solid ${sc.dot}`, padding:'16px 20px' }}>
+              <div style={{ display:'flex', gap:20, alignItems:'flex-start' }}>
+                <div style={{ minWidth:90, paddingTop:2 }}>
+                  <div style={{ fontWeight:800, fontSize:15 }}>{month.label}</div>
+                  <div style={{ color:'var(--text3)', fontSize:11 }}>{month.year}</div>
+                </div>
+                <div style={{ flex:1, display:'flex', flexDirection:'column', gap:10 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <Badge status={data.status}/>
+                    <span style={{ fontSize:11, color:'var(--text3)', fontWeight:700 }}>{sc.pct}%</span>
+                  </div>
+                  <div className="progress-bar" style={{ height:4 }}>
+                    <div className="progress-fill" style={{ width:`${sc.pct}%`, background:sc.dot }}/>
+                  </div>
+                  <select value={data.status} onChange={e=>onUpdate(month.key,{...data,status:e.target.value})}>
+                    {STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <textarea value={data.notes||''} onChange={e=>onUpdate(month.key,{...data,notes:e.target.value})} placeholder="Notas, observações..." rows={2} style={{ resize:'vertical', fontSize:12, padding:'8px 12px', lineHeight:1.5 }}/>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Checklist Tab ──────────────────────────────────────────
+function ChecklistTab({ client, onUpdate }) {
+  const items = client.checklist || [];
+  const [text, setText] = useState('');
+  const inputRef = useRef();
+
+  const add = () => {
+    if (!text.trim()) return;
+    onUpdate([...items, { id:uid(), text:text.trim(), done:false, createdAt:new Date().toISOString() }]);
+    setText('');
+    inputRef.current?.focus();
+  };
+  const toggle = id => onUpdate(items.map(i=>i.id===id?{...i,done:!i.done}:i));
+  const remove = id => onUpdate(items.filter(i=>i.id!==id));
+
+  const done = items.filter(i=>i.done).length;
+  const pending = items.filter(i=>!i.done);
+  const completed = items.filter(i=>i.done);
+
+  return (
+    <div style={{ padding:24 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 3fr', gap:12, marginBottom:24 }}>
+        <div className="card" style={{ textAlign:'center' }}>
+          <div className="stat-num" style={{ color:'#4ade80' }}>{done}</div>
+          <div className="stat-lbl">Concluídos</div>
+        </div>
+        <div className="card" style={{ textAlign:'center' }}>
+          <div className="stat-num" style={{ color:'#60a5fa' }}>{items.length - done}</div>
+          <div className="stat-lbl">Pendentes</div>
+        </div>
+        <div className="card" style={{ display:'flex', flexDirection:'column', justifyContent:'center', gap:8 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'var(--text2)' }}>
+            <span>Progresso</span>
+            <span style={{ fontWeight:700 }}>{items.length ? Math.round((done/items.length)*100) : 0}%</span>
+          </div>
+          <div className="progress-bar" style={{ height:5 }}>
+            <div className="progress-fill" style={{ width:`${items.length?(done/items.length)*100:0}%`, background:'#4ade80' }}/>
+          </div>
+        </div>
+      </div>
+      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+        <input ref={inputRef} value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Adicionar item... (Enter para salvar)"/>
+        <button className="btn btn-gold" onClick={add} style={{ whiteSpace:'nowrap', padding:'9px 18px' }}>+ Add</button>
+      </div>
+      {items.length === 0 ? (
+        <div className="empty-state">
+          <div style={{ fontSize:36 }}>✅</div>
+          <div style={{ fontWeight:600 }}>Checklist vazio</div>
+          <div style={{ fontSize:12 }}>Adicione tarefas acima</div>
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+          {pending.map(item => (
+            <div key={item.id} className="check-item" onClick={()=>toggle(item.id)}>
+              <div className="check-box"/>
+              <span style={{ flex:1, fontSize:13 }}>{item.text}</span>
+              <button className="icon-btn" onClick={e=>{e.stopPropagation();remove(item.id);}}>×</button>
+            </div>
+          ))}
+          {completed.length > 0 && pending.length > 0 && <div style={{ height:1, background:'var(--border)', margin:'6px 0' }}/>}
+          {completed.map(item => (
+            <div key={item.id} className="check-item" style={{ opacity:.45 }} onClick={()=>toggle(item.id)}>
+              <div className="check-box done"><IcoCheck/></div>
+              <span style={{ flex:1, fontSize:13, textDecoration:'line-through' }}>{item.text}</span>
+              <button className="icon-btn" onClick={e=>{e.stopPropagation();remove(item.id);}}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Sidebar ────────────────────────────────────────────────
+function Sidebar({ clients, selectedId, onSelect, onNew, onEdit, onDelete, syncing }) {
+  return (
+    <div className="sidebar">
+      <div style={{ padding:'18px 16px 14px', borderBottom:'1px solid var(--border)' }}>
+        <div style={{ fontWeight:900, fontSize:14, letterSpacing:'-0.02em', color:'var(--gold)' }}>Social Dashboard</div>
+        <div style={{ fontSize:10, color:'var(--text3)', marginTop:2, letterSpacing:'.06em', textTransform:'uppercase' }}>V4 Carvalho & Co</div>
+      </div>
+      <div style={{ padding:'10px 10px 8px' }}>
+        <button className="btn btn-gold" style={{ width:'100%', padding:'9px' }} onClick={onNew}>+ Novo Cliente</button>
+      </div>
+      <div className="sidebar-scroll">
+        {clients.length === 0 ? (
+          <div style={{ padding:'30px 12px', color:'var(--text3)', fontSize:12, textAlign:'center', lineHeight:1.6 }}>
+            Nenhum cliente ainda.<br/>Clique em "+ Novo Cliente".
+          </div>
+        ) : (
+          clients.map(c => {
+            const isActive = c.id === selectedId;
+            const statuses = MONTHS.map(m => S[c.calendar?.[m.key]?.status]?.pct ?? 0);
+            const avgPct = Math.round(statuses.reduce((a,b)=>a+b,0) / statuses.length);
+            return (
+              <div key={c.id} className={`client-item ${isActive?'active':''}`} onClick={()=>onSelect(c.id)}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                  <span style={{ fontWeight:700, fontSize:13, color:isActive?'var(--text)':'var(--text2)', lineHeight:1.3, flex:1, marginRight:6 }}>{c.name}</span>
+                  <div style={{ display:'flex', gap:2, flexShrink:0 }}>
+                    <button className="icon-btn" style={{ fontSize:12 }} onClick={e=>{e.stopPropagation();onEdit(c);}}>✎</button>
+                    <button className="icon-btn" style={{ fontSize:14, color:'#f87171' }} onClick={e=>{e.stopPropagation();onDelete(c.id);}}>×</button>
+                  </div>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:6 }}>
+                  <div style={{ display:'flex', gap:3 }}>
+                    {(c.platforms||['instagram']).map(p=><PlatformIcon key={p} p={p} size={12}/>)}
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div className="progress-bar" style={{ height:3 }}>
+                      <div className="progress-fill" style={{ width:`${avgPct}%`, background:avgPct===100?'#4ade80':'var(--gold)' }}/>
+                    </div>
+                  </div>
+                  <span style={{ fontSize:10, color:'var(--text3)', fontWeight:600 }}>{avgPct}%</span>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+      <div style={{ padding:'10px 16px', borderTop:'1px solid var(--border)', fontSize:10, color:'var(--text3)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <span>{clients.length} cliente{clients.length!==1?'s':''}</span>
+        <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+          <span className={`sync-dot ${syncing?'syncing':''}`}/>
+          <span>{syncing ? 'Salvando...' : 'Sincronizado'}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── App ────────────────────────────────────────────────────
+function App() {
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [modal, setModal] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // Load from Supabase
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await db.from('social_clients').select('*').order('created_at');
+      if (data && data.length) {
+        setClients(data);
+        setSelectedId(data[0].id);
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  const client = clients.find(c=>c.id===selectedId);
+
+  const saveClient = async (f) => {
+    setSaving(true);
+    const { error } = await db.from('social_clients').upsert(f);
+    if (!error) {
+      setClients(prev => {
+        const idx = prev.findIndex(c=>c.id===f.id);
+        if (idx>=0) { const next=[...prev]; next[idx]=f; return next; }
+        return [...prev, f];
+      });
+      setSelectedId(f.id);
+    }
+    setSaving(false);
+    setModal(null);
+  };
+
+  const deleteClient = async (id) => {
+    if (!confirm('Remover este cliente?')) return;
+    await db.from('social_clients').delete().eq('id', id);
+    setClients(prev => {
+      const next = prev.filter(c=>c.id!==id);
+      setSelectedId(next[0]?.id || null);
+      return next;
+    });
+  };
+
+  // Optimistic update + async sync
+  const updateClient = async (id, patch) => {
+    setClients(prev => prev.map(c=>c.id===id?{...c,...patch}:c));
+    setSyncing(true);
+    await db.from('social_clients').update(patch).eq('id', id);
+    setSyncing(false);
+  };
+
+  const TABS = [
+    { id:'overview',  label:'📊 Visão Geral' },
+    { id:'calendar',  label:'📅 Calendário'  },
+    { id:'checklist', label:'✅ Checklist'   },
+  ];
+
+  if (loading) {
+    return (
+      <div style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:16, color:'var(--text3)' }}>
+        <span className="spinner" style={{ width:28, height:28, borderWidth:3 }}/>
+        <span style={{ fontSize:13 }}>Carregando dados...</span>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Sidebar
+        clients={clients} selectedId={selectedId} syncing={syncing}
+        onSelect={id=>{setSelectedId(id);setActiveTab('overview');}}
+        onNew={()=>setModal('new')}
+        onEdit={c=>setModal(c)}
+        onDelete={deleteClient}
+      />
+      <div className="main">
+        {!client ? (
+          <div className="empty-state" style={{ height:'100%' }}>
+            <div style={{ fontSize:48 }}>🎯</div>
+            <div style={{ fontSize:18, fontWeight:800 }}>Bem-vindo ao Social Dashboard</div>
+            <div style={{ fontSize:13 }}>Adicione um cliente para começar</div>
+            <button className="btn btn-gold" style={{ marginTop:8 }} onClick={()=>setModal('new')}>+ Adicionar primeiro cliente</button>
+          </div>
+        ) : (
+          <>
+            <div style={{ padding:'20px 24px 0', borderBottom:'1px solid var(--border)', position:'sticky', top:0, background:'var(--bg)', zIndex:10 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
+                <div>
+                  <h1 style={{ fontSize:20, fontWeight:900, letterSpacing:'-0.03em' }}>{client.name}</h1>
+                  <div style={{ display:'flex', gap:6, marginTop:5, alignItems:'center' }}>
+                    {(client.platforms||['instagram']).map(p=>(
+                      <div key={p} style={{ display:'flex', alignItems:'center', gap:3 }}>
+                        <PlatformIcon p={p} size={13}/>
+                        {client.links?.[p] && <a href={client.links[p]} target="_blank" rel="noopener noreferrer" style={{ color:'var(--text3)', textDecoration:'none', fontSize:10 }}>↗</a>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <button className="btn btn-ghost" style={{ fontSize:12 }} onClick={()=>setModal(client)}>✎ Editar</button>
+              </div>
+              <div className="tab-bar">
+                {TABS.map(t=>(
+                  <button key={t.id} className={`tab ${activeTab===t.id?'active':''}`} onClick={()=>setActiveTab(t.id)}>{t.label}</button>
+                ))}
+              </div>
+            </div>
+            {activeTab==='overview' && (
+              <OverviewTab
+                client={client}
+                onUpdateMetrics={(p, m) => updateClient(selectedId, { metrics:{ ...client.metrics, [p]:m } })}
+              />
+            )}
+            {activeTab==='calendar' && (
+              <CalendarTab
+                client={client}
+                onUpdate={(monthKey, data) => updateClient(selectedId, { calendar:{ ...client.calendar, [monthKey]:data } })}
+              />
+            )}
+            {activeTab==='checklist' && (
+              <ChecklistTab
+                client={client}
+                onUpdate={list => updateClient(selectedId, { checklist:list })}
+              />
+            )}
+          </>
+        )}
+      </div>
+      {modal && (
+        <ClientModal
+          initial={modal==='new'?null:modal}
+          saving={saving}
+          onSave={saveClient}
+          onClose={()=>!saving&&setModal(null)}
+        />
+      )}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
