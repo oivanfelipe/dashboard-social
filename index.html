@@ -9,34 +9,36 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Bebas+Neue&display=swap');
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     :root {
-      --bg: #07070f; --bg-card: #0d0d1a; --bg-card2: #121220;
-      --bg-hover: #16162a; --border: #1a1a30; --border2: #222238;
-      --text: #eeeeff; --text2: #7878a0; --text3: #404060;
-      --gold: #c8a43c; --gold2: #e8c855;
+      --bg: #000000; --bg-card: #1a1a1a; --bg-card2: #262626;
+      --bg-hover: #333333; --border: #262626; --border2: #333333;
+      --text: #ffffff; --text2: #cccccc; --text3: #b3b3b3;
+      --red: #e50914; --red2: #ff2d3a; --red-dark: #b20710;
+      --green: #52cc5a; --yellow: #ffc02a;
     }
     html, body { height: 100%; overflow: hidden; }
-    body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; display: flex; }
+    body { background: var(--bg); color: var(--text); font-family: 'Montserrat', system-ui, sans-serif; display: flex; }
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
     #root { width: 100%; display: flex; height: 100vh; }
+    .display-heading { font-family: 'Bebas Neue', 'Montserrat', sans-serif; text-transform: uppercase; letter-spacing: .03em; font-weight: 400; }
     .sidebar { width: 250px; min-width: 250px; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
     .sidebar-scroll { flex: 1; overflow-y: auto; padding: 8px; }
     .main { flex: 1; overflow-y: auto; height: 100vh; }
     button { font-family: inherit; cursor: pointer; }
     .btn { border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; transition: all .15s; }
-    .btn-gold { background: var(--gold); color: #000; }
-    .btn-gold:hover { background: var(--gold2); }
-    .btn-gold:disabled { opacity: .5; cursor: default; }
+    .btn-primary { background: var(--red); color: #fff; }
+    .btn-primary:hover { background: var(--red2); }
+    .btn-primary:disabled { opacity: .5; cursor: default; }
     .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border2); }
     .btn-ghost:hover { background: var(--bg-hover); color: var(--text); }
     .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
     input, textarea, select { background: var(--bg-card2); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); padding: 9px 13px; font-size: 13px; font-family: inherit; outline: none; width: 100%; transition: border-color .15s; }
-    input:focus, textarea:focus, select:focus { border-color: var(--gold); }
-    select option { background: #16162a; }
+    input:focus, textarea:focus, select:focus { border-color: var(--red); }
+    select option { background: #262626; }
     label { font-size: 11px; color: var(--text2); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; display: block; margin-bottom: 6px; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 200; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
     .modal { background: var(--bg-card); border: 1px solid var(--border2); border-radius: 16px; padding: 28px; width: 580px; max-width: 96vw; max-height: 92vh; overflow-y: auto; }
@@ -44,20 +46,20 @@
     .tab-bar { display: flex; border-bottom: 1px solid var(--border); }
     .tab { padding: 13px 16px; font-size: 13px; font-weight: 500; color: var(--text3); cursor: pointer; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; transition: all .15s; font-family: inherit; }
     .tab:hover { color: var(--text2); }
-    .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
-    .metric-box { background: var(--bg-card2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .tab.active { color: var(--red); border-bottom-color: var(--red); }
     .link-pill { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; background: var(--bg-card2); border: 1px solid var(--border2); border-radius: 8px; font-size: 12px; color: var(--text2); text-decoration: none; transition: all .15s; }
-    .link-pill:hover { border-color: var(--gold); color: var(--gold); }
+    .link-pill:hover { border-color: var(--red); color: var(--red); }
     .progress-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
     .progress-fill { height: 100%; border-radius: 2px; transition: width .4s; }
     .check-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--bg-card2); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: border-color .15s; user-select: none; }
     .check-item:hover { border-color: var(--border2); }
     .check-box { width: 18px; height: 18px; min-width: 18px; border-radius: 5px; border: 2px solid var(--border2); display: flex; align-items: center; justify-content: center; transition: all .15s; }
-    .check-box.done { background: #4ade80; border-color: #4ade80; }
+    .check-box.done { background: var(--green); border-color: var(--green); }
     .client-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; border: 1px solid transparent; transition: all .15s; }
     .client-item:hover { background: var(--bg-hover); }
     .client-item.active { background: var(--bg-hover); border-color: var(--border2); }
     .section-title { font-size: 11px; color: var(--text2); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 14px; }
+    .section-title::before { content: '↗'; color: var(--red); margin-right: 6px; font-weight: 900; }
     .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text3); padding: 60px 20px; }
     .stat-num { font-size: 26px; font-weight: 800; line-height: 1; }
     .stat-lbl { font-size: 11px; color: var(--text2); margin-top: 3px; }
@@ -65,10 +67,10 @@
     .form-grid { display: flex; flex-direction: column; gap: 14px; }
     .icon-btn { background: none; border: none; color: var(--text3); font-size: 14px; padding: 3px 6px; border-radius: 4px; transition: all .15s; }
     .icon-btn:hover { color: var(--text2); background: var(--bg-hover); }
-    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border2); border-top-color: var(--gold); border-radius: 50%; animation: spin .7s linear infinite; }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border2); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; display: inline-block; }
-    .sync-dot.syncing { background: var(--gold); animation: pulse 1s ease-in-out infinite; }
+    .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; }
+    .sync-dot.syncing { background: var(--red); animation: pulse 1s ease-in-out infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
   </style>
 </head>
@@ -81,7 +83,6 @@ const { useState, useEffect, useRef } = React;
 const SUPA_URL = 'https://mzwynanvhojzyoirvxkc.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16d3luYW52aG9qenlvaXJ2eGtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5Mjc3NjEsImV4cCI6MjEwMTUwMzc2MX0.UniVWAVDJgyHo8QGlqXjMeTBulsjEDdZ5nyBWowYO2s';
 const db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
-const SYNC_URL = SUPA_URL + '/functions/v1/sync-social';
 
 // ── Constants ──────────────────────────────────────────────
 const PLATFORMS = ['instagram','linkedin','facebook','tiktok'];
@@ -99,15 +100,15 @@ const STATUSES = [
 ];
 
 const S = {
-  'Não iniciado':            { bg:'rgba(107,114,128,.14)', text:'#9ca3af', dot:'#6b7280', pct:0 },
-  'Iniciado calendário':     { bg:'rgba(59,130,246,.14)',  text:'#60a5fa', dot:'#3b82f6', pct:12 },
-  'Calendário em aprovação': { bg:'rgba(245,158,11,.14)',  text:'#fcd34d', dot:'#f59e0b', pct:25 },
-  'Aprovado calendário':     { bg:'rgba(16,185,129,.14)',  text:'#6ee7b7', dot:'#10b981', pct:37 },
-  'Em produção':             { bg:'rgba(249,115,22,.14)',  text:'#fb923c', dot:'#f97316', pct:50 },
-  'Envio cliente artes':     { bg:'rgba(139,92,246,.14)',  text:'#c4b5fd', dot:'#8b5cf6', pct:62 },
-  'Aprovado final':          { bg:'rgba(5,150,105,.18)',   text:'#34d399', dot:'#059669', pct:75 },
-  'Para publicação':         { bg:'rgba(14,165,233,.14)',  text:'#38bdf8', dot:'#0ea5e9', pct:87 },
-  'Publicado':               { bg:'rgba(74,222,128,.15)',  text:'#4ade80', dot:'#16a34a', pct:100 },
+  'Não iniciado':            { bg:'rgba(128,128,128,.14)', text:'#b3b3b3', dot:'#808080', pct:0 },
+  'Iniciado calendário':     { bg:'rgba(229,9,20,.14)',    text:'#ff6b73', dot:'#e50914', pct:12 },
+  'Calendário em aprovação': { bg:'rgba(255,77,26,.14)',   text:'#ff8f6b', dot:'#ff4d1a', pct:25 },
+  'Aprovado calendário':     { bg:'rgba(255,140,26,.14)',  text:'#ffb366', dot:'#ff8c1a', pct:37 },
+  'Em produção':             { bg:'rgba(255,192,42,.14)',  text:'#ffd980', dot:'#ffc02a', pct:50 },
+  'Envio cliente artes':     { bg:'rgba(212,217,38,.14)',  text:'#e6ea99', dot:'#d4d926', pct:62 },
+  'Aprovado final':          { bg:'rgba(168,217,54,.14)',  text:'#d0eaa0', dot:'#a8d936', pct:75 },
+  'Para publicação':         { bg:'rgba(125,217,70,.14)',  text:'#c0eaa8', dot:'#7dd946', pct:87 },
+  'Publicado':               { bg:'rgba(82,204,90,.15)',   text:'#8fe097', dot:'#52cc5a', pct:100 },
 };
 
 const MONTHS = [
@@ -127,27 +128,12 @@ const OP_LINKS = [
 // ── Helpers ────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2)+Date.now().toString(36);
 
-function fmtNum(v) {
-  const n = Number(String(v).replace(/\D/g,''));
-  if (!n && n!==0) return '—';
-  if (n>=1e6) return (n/1e6).toFixed(1).replace('.0','')+'M';
-  if (n>=1e3) return (n/1e3).toFixed(1).replace('.0','')+'K';
-  return n.toLocaleString('pt-BR');
-}
-
-function fmtDate(v) {
-  if (!v) return null;
-  try { return new Date(v+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}); }
-  catch { return v; }
-}
-
 function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
 
 function newClient() {
   return {
     id: uid(), name: '', platforms: ['instagram'],
     links: { instagram:'', linkedin:'', facebook:'', tiktok:'', calendar:'', tasks:'', ppt:'' },
-    metrics: Object.fromEntries(PLATFORMS.map(p=>[p,{followers:'',lastPost:'',likes:'',comments:'',updatedAt:null}])),
     calendar: Object.fromEntries(MONTHS.map(m=>[m.key,{status:'Não iniciado',notes:''}])),
     checklist: [],
   };
@@ -273,7 +259,7 @@ function ClientModal({ initial, onSave, onClose, saving }) {
         </div>
         <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:26, paddingTop:20, borderTop:'1px solid var(--border)' }}>
           <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancelar</button>
-          <button className="btn btn-gold" onClick={()=>{ if(f.name.trim()) onSave(f); }} disabled={!f.name.trim() || saving} style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <button className="btn btn-primary" onClick={()=>{ if(f.name.trim()) onSave(f); }} disabled={!f.name.trim() || saving} style={{ display:'flex', alignItems:'center', gap:8 }}>
             {saving ? <><span className="spinner" style={{ width:13, height:13, borderWidth:1.5 }}/> Salvando...</> : (initial ? 'Salvar Alterações' : '+ Adicionar Cliente')}
           </button>
         </div>
@@ -282,173 +268,28 @@ function ClientModal({ initial, onSave, onClose, saving }) {
   );
 }
 
-// ── Metrics Modal ──────────────────────────────────────────
-
-// ── Sync engine ────────────────────────────────────────────
-// Metrics are collected server-side by the sync-social edge function
-// (reads each platform's public profile link directly — no browser CORS
-// issues) once a day at 09:00 America/Sao_Paulo via pg_cron, and on demand
-// through these calls.
-async function callSync(body) {
-  try {
-    const res = await fetch(SYNC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPA_KEY, 'apikey': SUPA_KEY },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(45000),
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (e) {
-    return null;
-  }
-}
-const syncClientNow = (clientId) => callSync({ clientId });
-const syncAllNow = () => callSync({});
-
-function SyncBadge({ m, size=9 }) {
-  if (!m?.updatedAt) return null;
-  const cfg = {
-    auto:    { color:'#4ade80', label:'Auto' },
-    blocked: { color:'#f87171', label:'Bloqueado' },
-  }[m.syncStatus] || { color:'var(--text3)', label:'Manual' };
-  return (
-    <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:size, color:cfg.color, fontWeight:700, textTransform:'uppercase', letterSpacing:'.04em' }}>
-      <span style={{ width:5, height:5, borderRadius:'50%', background:cfg.color, display:'inline-block' }}/>
-      {cfg.label}
-    </span>
-  );
-}
-
-function mostRecentPost(client) {
-  const platforms = client.platforms || [];
-  let best = null;
-  for (const p of platforms) {
-    const m = client.metrics?.[p];
-    if (m?.lastPost && (!best || m.lastPost > best.lastPost)) best = { platform: p, ...m };
-  }
-  return best;
-}
-
-function MetricsModal({ client, platform, onSave, onClose, saving, onSync }) {
-  const [f, setF] = useState({ ...(client.metrics?.[platform]||{}) });
-  const [fetching, setFetching] = useState(false);
-  const [fetchMsg, setFetchMsg] = useState(null);
-  const pc = P[platform];
-
-  const handleFetch = async () => {
-    const profileUrl = client.links?.[platform];
-    if (!profileUrl) { setFetchMsg('❌ Nenhum link de perfil cadastrado para esta plataforma.'); return; }
-    setFetching(true);
-    setFetchMsg(null);
-    const result = await onSync();
-    setFetching(false);
-    const r = result?.results?.find(x => x.platform === platform);
-    if (!r) { setFetchMsg('⚠️ Não foi possível conectar ao serviço de sincronização. Tente novamente.'); return; }
-    if (r.status === 'ok') {
-      setF(prev => ({ ...prev, ...r.data }));
-      setFetchMsg('✅ Dados coletados automaticamente do perfil público.');
-    } else {
-      setFetchMsg('⚠️ A rede bloqueou a coleta automática (exige login). Insira os dados manualmente abaixo.');
-    }
-  };
-
-  return (
-    <div className="modal-overlay" onMouseDown={onClose}>
-      <div className="modal" onMouseDown={e=>e.stopPropagation()} style={{ width:420 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:22 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <PlatformIcon p={platform} size={20}/>
-            <h2 style={{ fontSize:15, fontWeight:800 }}>Atualizar {pc.label}</h2>
-          </div>
-          <button className="btn btn-ghost" style={{ padding:'5px 10px' }} onClick={onClose}>✕</button>
-        </div>
-        <div className="form-grid">
-          <div style={{ background:'var(--bg-card2)', border:'1px solid var(--border2)', borderRadius:8, padding:'12px 14px' }}>
-            <div style={{ fontSize:11, color:'var(--text2)', marginBottom:8 }}>
-              {client.links?.[platform] ? <><span style={{color:'var(--gold)'}}>🔗</span> Perfil cadastrado — coletado automaticamente todo dia às 9h, ou sincronize agora.</> : '⚠️ Cadastre o link do perfil no cliente para usar sincronização automática.'}
-            </div>
-            <button onClick={handleFetch} disabled={fetching || !client.links?.[platform]} style={{
-              display:'flex', alignItems:'center', gap:7, padding:'7px 14px', borderRadius:7,
-              background:'var(--gold)', border:'none', color:'#000', fontSize:12, fontWeight:700,
-              cursor: client.links?.[platform] ? 'pointer' : 'not-allowed',
-              opacity: client.links?.[platform] ? 1 : .4, fontFamily:'inherit'
-            }}>
-              {fetching ? <><span className="spinner" style={{width:12,height:12,borderWidth:1.5,borderTopColor:'#000'}}/> Sincronizando...</> : '⚡ Sincronizar agora'}
-            </button>
-            {fetchMsg && <div style={{ marginTop:8, fontSize:11, color: fetchMsg.startsWith('✅') ? '#4ade80' : fetchMsg.startsWith('❌') ? '#f87171' : 'var(--text2)' }}>{fetchMsg}</div>}
-          </div>
-          {[
-            { k:'followers', lbl:'Seguidores', ph:'Ex: 12500' },
-            { k:'lastPost',  lbl:'Data do último post', type:'date' },
-            { k:'likes',     lbl:'Curtidas (último post)', ph:'Ex: 342' },
-            { k:'comments',  lbl:'Comentários (último post)', ph:'Ex: 28' },
-          ].map(({ k, lbl, ph, type }) => (
-            <div key={k} className="form-row">
-              <label>{lbl}</label>
-              <input type={type||'text'} value={f[k]||''} onChange={e=>setF(p=>({...p,[k]:e.target.value}))} placeholder={ph||''}/>
-            </div>
-          ))}
-        </div>
-        <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:22, paddingTop:18, borderTop:'1px solid var(--border)' }}>
-          <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancelar</button>
-          <button className="btn btn-gold" onClick={()=>onSave({...f, updatedAt:new Date().toISOString()})} disabled={saving} style={{ display:'flex', alignItems:'center', gap:8 }}>
-            {saving ? <><span className="spinner" style={{ width:13, height:13, borderWidth:1.5 }}/> Salvando...</> : 'Salvar'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Overview Tab ───────────────────────────────────────────
-function OverviewTab({ client, onUpdateMetrics, onSync, syncing }) {
-  const [editing, setEditing] = useState(null);
-  const [saving, setSaving] = useState(false);
+// ── Overview Tab (perfis e links do cliente) ────────────────
+function OverviewTab({ client }) {
   const active = client.platforms || ['instagram'];
   const opLinks = OP_LINKS.filter(l => client.links?.[l.key]);
-  const hero = mostRecentPost(client);
-  const heroColor = hero ? P[hero.platform].color : 'var(--gold)';
+  const profileLinks = active.filter(p => client.links?.[p]);
 
   return (
     <div style={{ padding:24, display:'flex', flexDirection:'column', gap:20 }}>
-      {/* ── Último Post: the whole point of this dashboard ── */}
-      <div className="card" style={{ borderColor: heroColor+'40', background: `linear-gradient(135deg, ${heroColor}10, var(--bg-card))` }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-          <div className="section-title" style={{ margin:0 }}>🎯 Último Post</div>
-          <button onClick={()=>onSync()} disabled={syncing} className="btn btn-ghost" style={{ display:'flex', alignItems:'center', gap:7, fontSize:11, padding:'6px 12px' }}>
-            {syncing ? <><span className="spinner" style={{width:11,height:11,borderWidth:1.5}}/> Sincronizando...</> : <>⚡ Sincronizar agora</>}
-          </button>
-        </div>
-        {hero ? (
-          <div style={{ display:'flex', alignItems:'center', gap:32, flexWrap:'wrap' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-              <PlatformIcon p={hero.platform} size={30}/>
-              <div>
-                <div style={{ fontSize:30, fontWeight:900, letterSpacing:'-0.02em', color:heroColor, lineHeight:1 }}>{fmtDate(hero.lastPost)}</div>
-                <div style={{ fontSize:11, color:'var(--text2)', marginTop:5, display:'flex', alignItems:'center', gap:6 }}>
-                  {P[hero.platform].label}
-                  {client.links?.[hero.platform] && <a href={client.links[hero.platform]} target="_blank" rel="noopener noreferrer" style={{ color:'var(--text2)' }}>· ver perfil ↗</a>}
-                </div>
-              </div>
-            </div>
-            <div style={{ display:'flex', gap:30 }}>
-              <div style={{ textAlign:'center' }}>
-                <div style={{ fontSize:24, fontWeight:800 }}>{fmtNum(hero.likes)}</div>
-                <div style={{ fontSize:10, color:'var(--text2)', textTransform:'uppercase', letterSpacing:'.04em', marginTop:2 }}>Curtidas</div>
-              </div>
-              <div style={{ textAlign:'center' }}>
-                <div style={{ fontSize:24, fontWeight:800 }}>{fmtNum(hero.comments)}</div>
-                <div style={{ fontSize:10, color:'var(--text2)', textTransform:'uppercase', letterSpacing:'.04em', marginTop:2 }}>Comentários</div>
-              </div>
-            </div>
-            <div style={{ marginLeft:'auto' }}><SyncBadge m={hero} size={10}/></div>
+      <div className="card">
+        <div className="section-title">Perfis das Redes Sociais</div>
+        {profileLinks.length > 0 ? (
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            {profileLinks.map(p => (
+              <a key={p} href={client.links[p]} target="_blank" rel="noopener noreferrer" className="link-pill">
+                <PlatformIcon p={p} size={14}/> {P[p].label} <IcoExternal/>
+              </a>
+            ))}
           </div>
         ) : (
-          <div style={{ color:'var(--text3)', fontSize:12, padding:'6px 0' }}>Ainda sem post coletado. Sincronize agora ou cadastre manualmente por plataforma abaixo.</div>
+          <div style={{ color:'var(--text3)', fontSize:12 }}>Nenhum link de perfil cadastrado ainda. Edite o cliente para adicionar.</div>
         )}
       </div>
-
       {opLinks.length > 0 && (
         <div className="card">
           <div className="section-title">Links Operacionais</div>
@@ -460,68 +301,6 @@ function OverviewTab({ client, onUpdateMetrics, onSync, syncing }) {
             ))}
           </div>
         </div>
-      )}
-      <div>
-        <div className="section-title">Detalhado por Plataforma</div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))', gap:12 }}>
-          {active.map(p => {
-            const m = client.metrics?.[p] || {};
-            const pc = P[p];
-            const hasData = m.lastPost || m.followers || m.likes || m.comments;
-            return (
-              <div key={p} className="metric-box">
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                    <PlatformIcon p={p} size={17}/>
-                    <span style={{ fontWeight:700, fontSize:13, color:pc.color }}>{pc.label}</span>
-                  </div>
-                  <div style={{ display:'flex', gap:5, alignItems:'center' }}>
-                    {client.links?.[p] && (
-                      <a href={client.links[p]} target="_blank" rel="noopener noreferrer" className="link-pill" style={{ padding:'3px 8px', fontSize:10 }}>
-                        Perfil <IcoExternal size={10}/>
-                      </a>
-                    )}
-                    <button className="icon-btn" onClick={()=>setEditing(p)}>✎</button>
-                  </div>
-                </div>
-                {hasData ? (
-                  <>
-                    <div style={{ marginBottom:12 }}>
-                      <div style={{ fontSize:9, color:'var(--text2)', textTransform:'uppercase', letterSpacing:'.04em' }}>Último post</div>
-                      <div style={{ fontSize:19, fontWeight:800, color:pc.color, marginTop:2 }}>{m.lastPost ? fmtDate(m.lastPost) : '—'}</div>
-                    </div>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:12 }}>
-                      {[{ lbl:'Curtidas', v:m.likes },{ lbl:'Comentários', v:m.comments },{ lbl:'Seguidores', v:m.followers }].map(({ lbl, v }) => (
-                        <div key={lbl} style={{ textAlign:'center' }}>
-                          <div style={{ fontSize:15, fontWeight:800 }}>{fmtNum(v)}</div>
-                          <div style={{ fontSize:9, color:'var(--text2)', marginTop:2, textTransform:'uppercase', letterSpacing:'.04em' }}>{lbl}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid var(--border)', paddingTop:9 }}>
-                      <SyncBadge m={m}/>
-                      {m.updatedAt && <span style={{ fontSize:10, color:'var(--text3)' }}>{fmtDate(m.updatedAt.slice(0,10))}</span>}
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ textAlign:'center', padding:'18px 0', color:'var(--text3)' }}>
-                    <div style={{ fontSize:26, marginBottom:6 }}>📊</div>
-                    <div style={{ fontSize:12 }}>Nenhuma métrica ainda</div>
-                    <button onClick={()=>setEditing(p)} style={{ marginTop:10, background:`${pc.color}18`, border:`1px solid ${pc.color}40`, borderRadius:6, padding:'5px 13px', color:pc.color, fontSize:11, cursor:'pointer', fontFamily:'inherit', fontWeight:600 }}>+ Adicionar</button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      {editing && (
-        <MetricsModal
-          client={client} platform={editing} saving={saving}
-          onSync={onSync}
-          onSave={async m => { setSaving(true); await onUpdateMetrics(editing, m); setSaving(false); setEditing(null); }}
-          onClose={()=>setEditing(null)}
-        />
       )}
     </div>
   );
@@ -536,11 +315,11 @@ function CalendarTab({ client, onUpdate }) {
     <div style={{ padding:24 }}>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 3fr', gap:12, marginBottom:24 }}>
         <div className="card" style={{ textAlign:'center' }}>
-          <div className="stat-num" style={{ color:'#4ade80' }}>{published}</div>
+          <div className="stat-num" style={{ color:'var(--green)' }}>{published}</div>
           <div className="stat-lbl">Publicados</div>
         </div>
         <div className="card" style={{ textAlign:'center' }}>
-          <div className="stat-num" style={{ color:'#60a5fa' }}>{MONTHS.length - published}</div>
+          <div className="stat-num" style={{ color:'var(--yellow)' }}>{MONTHS.length - published}</div>
           <div className="stat-lbl">Em andamento</div>
         </div>
         <div className="card" style={{ display:'flex', flexDirection:'column', justifyContent:'center', gap:8 }}>
@@ -549,7 +328,7 @@ function CalendarTab({ client, onUpdate }) {
             <span style={{ fontWeight:700 }}>{Math.round((published/MONTHS.length)*100)}%</span>
           </div>
           <div className="progress-bar" style={{ height:5 }}>
-            <div className="progress-fill" style={{ width:`${(published/MONTHS.length)*100}%`, background:'#4ade80' }}/>
+            <div className="progress-fill" style={{ width:`${(published/MONTHS.length)*100}%`, background:'var(--green)' }}/>
           </div>
           <div style={{ display:'flex', gap:4 }}>
             {MONTHS.map(m => { const c = S[cal[m.key]?.status||'Não iniciado']; return <span key={m.key} title={`${m.label}: ${cal[m.key]?.status||'Não iniciado'}`} style={{ width:22, height:6, borderRadius:3, background:c.dot, opacity:.8 }}/>; })}
@@ -612,11 +391,11 @@ function ChecklistTab({ client, onUpdate }) {
     <div style={{ padding:24 }}>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 3fr', gap:12, marginBottom:24 }}>
         <div className="card" style={{ textAlign:'center' }}>
-          <div className="stat-num" style={{ color:'#4ade80' }}>{done}</div>
+          <div className="stat-num" style={{ color:'var(--green)' }}>{done}</div>
           <div className="stat-lbl">Concluídos</div>
         </div>
         <div className="card" style={{ textAlign:'center' }}>
-          <div className="stat-num" style={{ color:'#60a5fa' }}>{items.length - done}</div>
+          <div className="stat-num" style={{ color:'var(--yellow)' }}>{items.length - done}</div>
           <div className="stat-lbl">Pendentes</div>
         </div>
         <div className="card" style={{ display:'flex', flexDirection:'column', justifyContent:'center', gap:8 }}>
@@ -625,13 +404,13 @@ function ChecklistTab({ client, onUpdate }) {
             <span style={{ fontWeight:700 }}>{items.length ? Math.round((done/items.length)*100) : 0}%</span>
           </div>
           <div className="progress-bar" style={{ height:5 }}>
-            <div className="progress-fill" style={{ width:`${items.length?(done/items.length)*100:0}%`, background:'#4ade80' }}/>
+            <div className="progress-fill" style={{ width:`${items.length?(done/items.length)*100:0}%`, background:'var(--green)' }}/>
           </div>
         </div>
       </div>
       <div style={{ display:'flex', gap:8, marginBottom:20 }}>
         <input ref={inputRef} value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Adicionar item... (Enter para salvar)"/>
-        <button className="btn btn-gold" onClick={add} style={{ whiteSpace:'nowrap', padding:'9px 18px' }}>+ Add</button>
+        <button className="btn btn-primary" onClick={add} style={{ whiteSpace:'nowrap', padding:'9px 18px' }}>+ Add</button>
       </div>
       {items.length === 0 ? (
         <div className="empty-state">
@@ -664,10 +443,9 @@ function ChecklistTab({ client, onUpdate }) {
 
 
 // ── Global Overview ────────────────────────────────────────
-function GlobalOverview({ clients, onSelectClient, onSyncAll, syncingAll }) {
+function GlobalOverview({ clients, onSelectClient }) {
   const currentMonth = MONTHS[0]; // Agosto 2026
   const totalClients = clients.length;
-  const totalPlatforms = [...new Set(clients.flatMap(c=>c.platforms||[]))];
   const publishedThisMonth = clients.filter(c => c.calendar?.[currentMonth.key]?.status === 'Publicado').length;
   const pendingChecks = clients.reduce((acc,c)=>{
     const items = c.checklist||[];
@@ -686,23 +464,18 @@ function GlobalOverview({ clients, onSelectClient, onSyncAll, syncingAll }) {
 
   return (
     <div style={{ padding:24, display:'flex', flexDirection:'column', gap:20 }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <div>
-          <h1 style={{ fontSize:20, fontWeight:900, letterSpacing:'-0.03em' }}>Visão Geral</h1>
-          <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>Coleta automática diária às 9h · dados públicos por cliente</div>
-        </div>
-        <button onClick={onSyncAll} disabled={syncingAll} className="btn btn-gold" style={{ display:'flex', alignItems:'center', gap:7 }}>
-          {syncingAll ? <><span className="spinner" style={{width:12,height:12,borderWidth:1.5,borderTopColor:'#000'}}/> Sincronizando...</> : <>⚡ Sincronizar todos</>}
-        </button>
+      <div>
+        <h1 className="display-heading" style={{ fontSize:32, color:'var(--text)' }}>Visão Geral</h1>
+        <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>Acompanhamento de conteúdo por cliente</div>
       </div>
 
       {/* Summary KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:12 }}>
         {[
-          { label:'Clientes Ativos', value:totalClients, color:'var(--gold)', icon:'🎯' },
-          { label:'Publicados em '+currentMonth.label, value:publishedThisMonth, color:'#4ade80', icon:'✅' },
-          { label:'Em andamento', value:totalClients-publishedThisMonth, color:'#60a5fa', icon:'🔄' },
-          { label:'Tasks pendentes', value:pendingChecks, color:'#f87171', icon:'📌' },
+          { label:'Clientes Ativos', value:totalClients, color:'var(--text)', icon:'🎯' },
+          { label:'Publicados em '+currentMonth.label, value:publishedThisMonth, color:'var(--green)', icon:'✅' },
+          { label:'Em andamento', value:totalClients-publishedThisMonth, color:'var(--yellow)', icon:'🔄' },
+          { label:'Tasks pendentes', value:pendingChecks, color:'var(--red)', icon:'📌' },
         ].map(({ label, value, color, icon }) => (
           <div key={label} className="card" style={{ textAlign:'center', padding:'18px 14px' }}>
             <div style={{ fontSize:22, marginBottom:6 }}>{icon}</div>
@@ -710,37 +483,6 @@ function GlobalOverview({ clients, onSelectClient, onSyncAll, syncingAll }) {
             <div className="stat-lbl">{label}</div>
           </div>
         ))}
-      </div>
-
-      {/* Último Post por Cliente — the main focus of this dashboard */}
-      <div>
-        <div className="section-title">🎯 Último Post por Cliente</div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:12 }}>
-          {clients.map(c => {
-            const post = mostRecentPost(c);
-            const color = post ? P[post.platform].color : 'var(--text3)';
-            return (
-              <div key={c.id} className="card" style={{ cursor:'pointer', borderColor: post ? color+'35' : 'var(--border)' }} onClick={()=>onSelectClient(c.id)}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                  <span style={{ fontWeight:700, fontSize:13 }}>{c.name}</span>
-                  {post && <PlatformIcon p={post.platform} size={15}/>}
-                </div>
-                {post ? (
-                  <>
-                    <div style={{ fontSize:21, fontWeight:800, color }}>{fmtDate(post.lastPost)}</div>
-                    <div style={{ display:'flex', gap:14, marginTop:8, fontSize:12, color:'var(--text2)' }}>
-                      <span>❤️ {fmtNum(post.likes)}</span>
-                      <span>💬 {fmtNum(post.comments)}</span>
-                    </div>
-                    <div style={{ marginTop:8 }}><SyncBadge m={post}/></div>
-                  </>
-                ) : (
-                  <div style={{ color:'var(--text3)', fontSize:12 }}>Sem dados ainda</div>
-                )}
-              </div>
-            );
-          })}
-        </div>
       </div>
 
       {/* Clients table */}
@@ -761,7 +503,6 @@ function GlobalOverview({ clients, onSelectClient, onSyncAll, syncingAll }) {
               {clients.map((c, i) => {
                 const calData = c.calendar?.[currentMonth.key] || {};
                 const status = calData.status || 'Não iniciado';
-                const sc = S[status] || S['Não iniciado'];
                 const checks = c.checklist || [];
                 const checkDone = checks.filter(x=>x.done).length;
                 const checkTotal = checks.length;
@@ -784,7 +525,7 @@ function GlobalOverview({ clients, onSelectClient, onSyncAll, syncingAll }) {
                       {checkTotal > 0 ? (
                         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                           <div className="progress-bar" style={{ width:60, height:4 }}>
-                            <div className="progress-fill" style={{ width:`${checkTotal?(checkDone/checkTotal)*100:0}%`, background:'#4ade80' }}/>
+                            <div className="progress-fill" style={{ width:`${checkTotal?(checkDone/checkTotal)*100:0}%`, background:'var(--green)' }}/>
                           </div>
                           <span style={{ color:'var(--text2)', fontSize:11 }}>{checkDone}/{checkTotal}</span>
                         </div>
@@ -793,7 +534,7 @@ function GlobalOverview({ clients, onSelectClient, onSyncAll, syncingAll }) {
                     <td style={{ padding:'12px 16px' }}>
                       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                         <div className="progress-bar" style={{ width:60, height:4 }}>
-                          <div className="progress-fill" style={{ width:`${calAvg}%`, background:calAvg===100?'#4ade80':'var(--gold)' }}/>
+                          <div className="progress-fill" style={{ width:`${calAvg}%`, background:calAvg===100?'var(--green)':'var(--red)' }}/>
                         </div>
                         <span style={{ color:'var(--text2)', fontSize:11 }}>{calAvg}%</span>
                       </div>
@@ -836,17 +577,17 @@ function Sidebar({ clients, selectedId, onSelect, onNew, onEdit, onDelete, onHom
   return (
     <div className="sidebar">
       <div style={{ padding:'18px 16px 14px', borderBottom:'1px solid var(--border)' }}>
-        <div style={{ fontWeight:900, fontSize:14, letterSpacing:'-0.02em', color:'var(--gold)' }}>Social Dashboard</div>
+        <div className="display-heading" style={{ fontSize:20, color:'var(--red)' }}>Social Dashboard</div>
         <div style={{ fontSize:10, color:'var(--text3)', marginTop:2, letterSpacing:'.06em', textTransform:'uppercase' }}>V4 Carvalho & Co</div>
       </div>
       <div style={{ padding:'10px 10px 4px', display:'flex', gap:6 }}>
         <button onClick={onHome} style={{
           flex:'0 0 auto', padding:'7px 10px', borderRadius:7, border:'1px solid var(--border2)',
           background: selectedId===null ? 'var(--bg-hover)' : 'transparent',
-          color: selectedId===null ? 'var(--gold)' : 'var(--text3)',
+          color: selectedId===null ? 'var(--red)' : 'var(--text3)',
           fontSize:13, cursor:'pointer', fontFamily:'inherit', transition:'all .15s'
         }} title="Visão Geral">🏠</button>
-        <button className="btn btn-gold" style={{ flex:1, padding:'7px' }} onClick={onNew}>+ Novo Cliente</button>
+        <button className="btn btn-primary" style={{ flex:1, padding:'7px' }} onClick={onNew}>+ Novo Cliente</button>
       </div>
       <div className="sidebar-scroll">
         {clients.length === 0 ? (
@@ -873,7 +614,7 @@ function Sidebar({ clients, selectedId, onSelect, onNew, onEdit, onDelete, onHom
                   </div>
                   <div style={{ flex:1 }}>
                     <div className="progress-bar" style={{ height:3 }}>
-                      <div className="progress-fill" style={{ width:`${avgPct}%`, background:avgPct===100?'#4ade80':'var(--gold)' }}/>
+                      <div className="progress-fill" style={{ width:`${avgPct}%`, background:avgPct===100?'var(--green)':'var(--red)' }}/>
                     </div>
                   </div>
                   <span style={{ fontSize:10, color:'var(--text3)', fontWeight:600 }}>{avgPct}%</span>
@@ -899,8 +640,6 @@ function App() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [syncingClientId, setSyncingClientId] = useState(null);
-  const [syncingAll, setSyncingAll] = useState(false);
   const [selectedId, setSelectedId] = useState(null); // null = global overview
   const [activeTab, setActiveTab] = useState('overview');
   const [modal, setModal] = useState(null);
@@ -953,29 +692,10 @@ function App() {
     setSyncing(false);
   };
 
-  // Pull fresh public metrics for one client from its profile links (sync-social edge function)
-  const syncClient = async (id) => {
-    setSyncingClientId(id);
-    const result = await syncClientNow(id);
-    const { data } = await db.from('social_clients').select('*').eq('id', id).single();
-    if (data) setClients(prev => prev.map(c => c.id === id ? data : c));
-    setSyncingClientId(null);
-    return result;
-  };
-
-  // Pull fresh public metrics for every client (used by the "Sincronizar todos" button)
-  const syncAll = async () => {
-    setSyncingAll(true);
-    await syncAllNow();
-    const { data } = await db.from('social_clients').select('*').order('created_at');
-    if (data) setClients(data);
-    setSyncingAll(false);
-  };
-
   const TABS = [
-    { id:'overview',  label:'📊 Visão Geral' },
-    { id:'calendar',  label:'📅 Calendário'  },
-    { id:'checklist', label:'✅ Checklist'   },
+    { id:'overview',  label:'🔗 Links'      },
+    { id:'calendar',  label:'📅 Calendário' },
+    { id:'checklist', label:'✅ Checklist'  },
   ];
 
   if (loading) {
@@ -999,16 +719,13 @@ function App() {
       />
       <div className="main">
         {!client ? (
-          <GlobalOverview
-            clients={clients} onSelectClient={id=>{setSelectedId(id);setActiveTab('overview');}}
-            onSyncAll={syncAll} syncingAll={syncingAll}
-          />
+          <GlobalOverview clients={clients} onSelectClient={id=>{setSelectedId(id);setActiveTab('overview');}}/>
         ) : (
           <>
             <div style={{ padding:'20px 24px 0', borderBottom:'1px solid var(--border)', position:'sticky', top:0, background:'var(--bg)', zIndex:10 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
                 <div>
-                  <h1 style={{ fontSize:20, fontWeight:900, letterSpacing:'-0.03em' }}>{client.name}</h1>
+                  <h1 className="display-heading" style={{ fontSize:26, color:'var(--text)' }}>{client.name}</h1>
                   <div style={{ display:'flex', gap:6, marginTop:5, alignItems:'center' }}>
                     {(client.platforms||['instagram']).map(p=>(
                       <div key={p} style={{ display:'flex', alignItems:'center', gap:3 }}>
@@ -1026,14 +743,7 @@ function App() {
                 ))}
               </div>
             </div>
-            {activeTab==='overview' && (
-              <OverviewTab
-                client={client}
-                onUpdateMetrics={(p, m) => updateClient(selectedId, { metrics:{ ...client.metrics, [p]:m } })}
-                onSync={() => syncClient(selectedId)}
-                syncing={syncingClientId === selectedId}
-              />
-            )}
+            {activeTab==='overview' && <OverviewTab client={client}/>}
             {activeTab==='calendar' && (
               <CalendarTab
                 client={client}
