@@ -81,6 +81,7 @@ const { useState, useEffect, useRef } = React;
 const SUPA_URL = 'https://mzwynanvhojzyoirvxkc.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16d3luYW52aG9qenlvaXJ2eGtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5Mjc3NjEsImV4cCI6MjEwMTUwMzc2MX0.UniVWAVDJgyHo8QGlqXjMeTBulsjEDdZ5nyBWowYO2s';
 const db = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+const SYNC_URL = SUPA_URL + '/functions/v1/sync-social';
 
 // ── Constants ──────────────────────────────────────────────
 const PLATFORMS = ['instagram','linkedin','facebook','tiktok'];
@@ -283,60 +284,53 @@ function ClientModal({ initial, onSave, onClose, saving }) {
 
 // ── Metrics Modal ──────────────────────────────────────────
 
-// ── Auto-fetch last post ───────────────────────────────────
-async function fetchLastPost(profileUrl, platform) {
-  if (!profileUrl) return null;
+// ── Sync engine ────────────────────────────────────────────
+// Metrics are collected server-side by the sync-social edge function
+// (reads each platform's public profile link directly — no browser CORS
+// issues) once a day at 09:00 America/Sao_Paulo via pg_cron, and on demand
+// through these calls.
+async function callSync(body) {
   try {
-    const proxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(profileUrl);
-    const res = await fetch(proxy, { signal: AbortSignal.timeout(8000) });
+    const res = await fetch(SYNC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPA_KEY, 'apikey': SUPA_KEY },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(45000),
+    });
     if (!res.ok) return null;
-    const { contents } = await res.json();
-    if (!contents) return null;
-
-    // Instagram: look for "taken_at_timestamp" or og:updated_time or time tags
-    if (platform === 'instagram') {
-      // Try JSON in page
-      const tsMatch = contents.match(/"taken_at_timestamp":(\d+)/);
-      if (tsMatch) return new Date(parseInt(tsMatch[1])*1000).toISOString().slice(0,10);
-      // Try time elements
-      const timeMatch = contents.match(/datetime="(20\d{2}-\d{2}-\d{2})/);
-      if (timeMatch) return timeMatch[1];
-      // Try meta og:updated_time
-      const ogMatch = contents.match(/og:updated_time[^>]*content="([^"]+)"/);
-      if (ogMatch) return ogMatch[1].slice(0,10);
-    }
-
-    // LinkedIn: look for published date
-    if (platform === 'linkedin') {
-      const liMatch = contents.match(/(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}/);
-      if (liMatch) return liMatch[1];
-    }
-
-    // Facebook
-    if (platform === 'facebook') {
-      const fbMatch = contents.match(/data-utime="(\d+)"/);
-      if (fbMatch) return new Date(parseInt(fbMatch[1])*1000).toISOString().slice(0,10);
-      const fbMatch2 = contents.match(/"date_created":(\d+)/);
-      if (fbMatch2) return new Date(parseInt(fbMatch2[1])*1000).toISOString().slice(0,10);
-    }
-
-    // TikTok
-    if (platform === 'tiktok') {
-      const ttMatch = contents.match(/"createTime":(\d+)/);
-      if (ttMatch) return new Date(parseInt(ttMatch[1])*1000).toISOString().slice(0,10);
-    }
-
-    // Generic: any ISO date found
-    const genericMatch = contents.match(/(20\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01]))/);
-    if (genericMatch) return genericMatch[1];
-
-    return null;
+    return await res.json();
   } catch (e) {
     return null;
   }
 }
+const syncClientNow = (clientId) => callSync({ clientId });
+const syncAllNow = () => callSync({});
 
-function MetricsModal({ client, platform, onSave, onClose, saving }) {
+function SyncBadge({ m, size=9 }) {
+  if (!m?.updatedAt) return null;
+  const cfg = {
+    auto:    { color:'#4ade80', label:'Auto' },
+    blocked: { color:'#f87171', label:'Bloqueado' },
+  }[m.syncStatus] || { color:'var(--text3)', label:'Manual' };
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:size, color:cfg.color, fontWeight:700, textTransform:'uppercase', letterSpacing:'.04em' }}>
+      <span style={{ width:5, height:5, borderRadius:'50%', background:cfg.color, display:'inline-block' }}/>
+      {cfg.label}
+    </span>
+  );
+}
+
+function mostRecentPost(client) {
+  const platforms = client.platforms || [];
+  let best = null;
+  for (const p of platforms) {
+    const m = client.metrics?.[p];
+    if (m?.lastPost && (!best || m.lastPost > best.lastPost)) best = { platform: p, ...m };
+  }
+  return best;
+}
+
+function MetricsModal({ client, platform, onSave, onClose, saving, onSync }) {
   const [f, setF] = useState({ ...(client.metrics?.[platform]||{}) });
   const [fetching, setFetching] = useState(false);
   const [fetchMsg, setFetchMsg] = useState(null);
@@ -347,13 +341,15 @@ function MetricsModal({ client, platform, onSave, onClose, saving }) {
     if (!profileUrl) { setFetchMsg('❌ Nenhum link de perfil cadastrado para esta plataforma.'); return; }
     setFetching(true);
     setFetchMsg(null);
-    const date = await fetchLastPost(profileUrl, platform);
+    const result = await onSync();
     setFetching(false);
-    if (date) {
-      setF(prev => ({ ...prev, lastPost: date }));
-      setFetchMsg('✅ Data encontrada: ' + new Date(date+'T12:00:00').toLocaleDateString('pt-BR', {day:'2-digit',month:'short',year:'numeric'}));
+    const r = result?.results?.find(x => x.platform === platform);
+    if (!r) { setFetchMsg('⚠️ Não foi possível conectar ao serviço de sincronização. Tente novamente.'); return; }
+    if (r.status === 'ok') {
+      setF(prev => ({ ...prev, ...r.data }));
+      setFetchMsg('✅ Dados coletados automaticamente do perfil público.');
     } else {
-      setFetchMsg('⚠️ Não foi possível coletar automaticamente. A plataforma bloqueou o acesso — insira manualmente.');
+      setFetchMsg('⚠️ A rede bloqueou a coleta automática (exige login). Insira os dados manualmente abaixo.');
     }
   };
 
@@ -370,7 +366,7 @@ function MetricsModal({ client, platform, onSave, onClose, saving }) {
         <div className="form-grid">
           <div style={{ background:'var(--bg-card2)', border:'1px solid var(--border2)', borderRadius:8, padding:'12px 14px' }}>
             <div style={{ fontSize:11, color:'var(--text2)', marginBottom:8 }}>
-              {client.links?.[platform] ? <><span style={{color:'var(--gold)'}}>🔗</span> Perfil cadastrado — tente buscar o último post automaticamente.</> : '⚠️ Cadastre o link do perfil no cliente para usar busca automática.'}
+              {client.links?.[platform] ? <><span style={{color:'var(--gold)'}}>🔗</span> Perfil cadastrado — coletado automaticamente todo dia às 9h, ou sincronize agora.</> : '⚠️ Cadastre o link do perfil no cliente para usar sincronização automática.'}
             </div>
             <button onClick={handleFetch} disabled={fetching || !client.links?.[platform]} style={{
               display:'flex', alignItems:'center', gap:7, padding:'7px 14px', borderRadius:7,
@@ -378,7 +374,7 @@ function MetricsModal({ client, platform, onSave, onClose, saving }) {
               cursor: client.links?.[platform] ? 'pointer' : 'not-allowed',
               opacity: client.links?.[platform] ? 1 : .4, fontFamily:'inherit'
             }}>
-              {fetching ? <><span className="spinner" style={{width:12,height:12,borderWidth:1.5,borderTopColor:'#000'}}/> Buscando...</> : '⚡ Buscar último post automaticamente'}
+              {fetching ? <><span className="spinner" style={{width:12,height:12,borderWidth:1.5,borderTopColor:'#000'}}/> Sincronizando...</> : '⚡ Sincronizar agora'}
             </button>
             {fetchMsg && <div style={{ marginTop:8, fontSize:11, color: fetchMsg.startsWith('✅') ? '#4ade80' : fetchMsg.startsWith('❌') ? '#f87171' : 'var(--text2)' }}>{fetchMsg}</div>}
           </div>
@@ -406,14 +402,53 @@ function MetricsModal({ client, platform, onSave, onClose, saving }) {
 }
 
 // ── Overview Tab ───────────────────────────────────────────
-function OverviewTab({ client, onUpdateMetrics }) {
+function OverviewTab({ client, onUpdateMetrics, onSync, syncing }) {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const active = client.platforms || ['instagram'];
   const opLinks = OP_LINKS.filter(l => client.links?.[l.key]);
+  const hero = mostRecentPost(client);
+  const heroColor = hero ? P[hero.platform].color : 'var(--gold)';
 
   return (
     <div style={{ padding:24, display:'flex', flexDirection:'column', gap:20 }}>
+      {/* ── Último Post: the whole point of this dashboard ── */}
+      <div className="card" style={{ borderColor: heroColor+'40', background: `linear-gradient(135deg, ${heroColor}10, var(--bg-card))` }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+          <div className="section-title" style={{ margin:0 }}>🎯 Último Post</div>
+          <button onClick={()=>onSync()} disabled={syncing} className="btn btn-ghost" style={{ display:'flex', alignItems:'center', gap:7, fontSize:11, padding:'6px 12px' }}>
+            {syncing ? <><span className="spinner" style={{width:11,height:11,borderWidth:1.5}}/> Sincronizando...</> : <>⚡ Sincronizar agora</>}
+          </button>
+        </div>
+        {hero ? (
+          <div style={{ display:'flex', alignItems:'center', gap:32, flexWrap:'wrap' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <PlatformIcon p={hero.platform} size={30}/>
+              <div>
+                <div style={{ fontSize:30, fontWeight:900, letterSpacing:'-0.02em', color:heroColor, lineHeight:1 }}>{fmtDate(hero.lastPost)}</div>
+                <div style={{ fontSize:11, color:'var(--text2)', marginTop:5, display:'flex', alignItems:'center', gap:6 }}>
+                  {P[hero.platform].label}
+                  {client.links?.[hero.platform] && <a href={client.links[hero.platform]} target="_blank" rel="noopener noreferrer" style={{ color:'var(--text2)' }}>· ver perfil ↗</a>}
+                </div>
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:30 }}>
+              <div style={{ textAlign:'center' }}>
+                <div style={{ fontSize:24, fontWeight:800 }}>{fmtNum(hero.likes)}</div>
+                <div style={{ fontSize:10, color:'var(--text2)', textTransform:'uppercase', letterSpacing:'.04em', marginTop:2 }}>Curtidas</div>
+              </div>
+              <div style={{ textAlign:'center' }}>
+                <div style={{ fontSize:24, fontWeight:800 }}>{fmtNum(hero.comments)}</div>
+                <div style={{ fontSize:10, color:'var(--text2)', textTransform:'uppercase', letterSpacing:'.04em', marginTop:2 }}>Comentários</div>
+              </div>
+            </div>
+            <div style={{ marginLeft:'auto' }}><SyncBadge m={hero} size={10}/></div>
+          </div>
+        ) : (
+          <div style={{ color:'var(--text3)', fontSize:12, padding:'6px 0' }}>Ainda sem post coletado. Sincronize agora ou cadastre manualmente por plataforma abaixo.</div>
+        )}
+      </div>
+
       {opLinks.length > 0 && (
         <div className="card">
           <div className="section-title">Links Operacionais</div>
@@ -427,12 +462,12 @@ function OverviewTab({ client, onUpdateMetrics }) {
         </div>
       )}
       <div>
-        <div className="section-title">Métricas por Plataforma</div>
+        <div className="section-title">Detalhado por Plataforma</div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))', gap:12 }}>
           {active.map(p => {
             const m = client.metrics?.[p] || {};
             const pc = P[p];
-            const hasData = m.followers || m.likes || m.comments;
+            const hasData = m.lastPost || m.followers || m.likes || m.comments;
             return (
               <div key={p} className="metric-box">
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
@@ -451,20 +486,22 @@ function OverviewTab({ client, onUpdateMetrics }) {
                 </div>
                 {hasData ? (
                   <>
+                    <div style={{ marginBottom:12 }}>
+                      <div style={{ fontSize:9, color:'var(--text2)', textTransform:'uppercase', letterSpacing:'.04em' }}>Último post</div>
+                      <div style={{ fontSize:19, fontWeight:800, color:pc.color, marginTop:2 }}>{m.lastPost ? fmtDate(m.lastPost) : '—'}</div>
+                    </div>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:12 }}>
-                      {[{ lbl:'Seguidores', v:m.followers },{ lbl:'Curtidas', v:m.likes },{ lbl:'Comentários', v:m.comments }].map(({ lbl, v }) => (
+                      {[{ lbl:'Curtidas', v:m.likes },{ lbl:'Comentários', v:m.comments },{ lbl:'Seguidores', v:m.followers }].map(({ lbl, v }) => (
                         <div key={lbl} style={{ textAlign:'center' }}>
-                          <div style={{ fontSize:20, fontWeight:800, color:pc.color }}>{fmtNum(v)}</div>
+                          <div style={{ fontSize:15, fontWeight:800 }}>{fmtNum(v)}</div>
                           <div style={{ fontSize:9, color:'var(--text2)', marginTop:2, textTransform:'uppercase', letterSpacing:'.04em' }}>{lbl}</div>
                         </div>
                       ))}
                     </div>
-                    {(m.lastPost || m.updatedAt) && (
-                      <div style={{ fontSize:10, color:'var(--text3)', borderTop:'1px solid var(--border)', paddingTop:9 }}>
-                        {m.lastPost && <span>Último post: <span style={{ color:'var(--text2)' }}>{fmtDate(m.lastPost)}</span></span>}
-                        {m.updatedAt && <span> · Atualizado: <span style={{ color:'var(--text2)' }}>{fmtDate(m.updatedAt.slice(0,10))}</span></span>}
-                      </div>
-                    )}
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid var(--border)', paddingTop:9 }}>
+                      <SyncBadge m={m}/>
+                      {m.updatedAt && <span style={{ fontSize:10, color:'var(--text3)' }}>{fmtDate(m.updatedAt.slice(0,10))}</span>}
+                    </div>
                   </>
                 ) : (
                   <div style={{ textAlign:'center', padding:'18px 0', color:'var(--text3)' }}>
@@ -481,6 +518,7 @@ function OverviewTab({ client, onUpdateMetrics }) {
       {editing && (
         <MetricsModal
           client={client} platform={editing} saving={saving}
+          onSync={onSync}
           onSave={async m => { setSaving(true); await onUpdateMetrics(editing, m); setSaving(false); setEditing(null); }}
           onClose={()=>setEditing(null)}
         />
@@ -626,7 +664,7 @@ function ChecklistTab({ client, onUpdate }) {
 
 
 // ── Global Overview ────────────────────────────────────────
-function GlobalOverview({ clients, onSelectClient }) {
+function GlobalOverview({ clients, onSelectClient, onSyncAll, syncingAll }) {
   const currentMonth = MONTHS[0]; // Agosto 2026
   const totalClients = clients.length;
   const totalPlatforms = [...new Set(clients.flatMap(c=>c.platforms||[]))];
@@ -648,6 +686,16 @@ function GlobalOverview({ clients, onSelectClient }) {
 
   return (
     <div style={{ padding:24, display:'flex', flexDirection:'column', gap:20 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <div>
+          <h1 style={{ fontSize:20, fontWeight:900, letterSpacing:'-0.03em' }}>Visão Geral</h1>
+          <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>Coleta automática diária às 9h · dados públicos por cliente</div>
+        </div>
+        <button onClick={onSyncAll} disabled={syncingAll} className="btn btn-gold" style={{ display:'flex', alignItems:'center', gap:7 }}>
+          {syncingAll ? <><span className="spinner" style={{width:12,height:12,borderWidth:1.5,borderTopColor:'#000'}}/> Sincronizando...</> : <>⚡ Sincronizar todos</>}
+        </button>
+      </div>
+
       {/* Summary KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:12 }}>
         {[
@@ -664,6 +712,37 @@ function GlobalOverview({ clients, onSelectClient }) {
         ))}
       </div>
 
+      {/* Último Post por Cliente — the main focus of this dashboard */}
+      <div>
+        <div className="section-title">🎯 Último Post por Cliente</div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:12 }}>
+          {clients.map(c => {
+            const post = mostRecentPost(c);
+            const color = post ? P[post.platform].color : 'var(--text3)';
+            return (
+              <div key={c.id} className="card" style={{ cursor:'pointer', borderColor: post ? color+'35' : 'var(--border)' }} onClick={()=>onSelectClient(c.id)}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                  <span style={{ fontWeight:700, fontSize:13 }}>{c.name}</span>
+                  {post && <PlatformIcon p={post.platform} size={15}/>}
+                </div>
+                {post ? (
+                  <>
+                    <div style={{ fontSize:21, fontWeight:800, color }}>{fmtDate(post.lastPost)}</div>
+                    <div style={{ display:'flex', gap:14, marginTop:8, fontSize:12, color:'var(--text2)' }}>
+                      <span>❤️ {fmtNum(post.likes)}</span>
+                      <span>💬 {fmtNum(post.comments)}</span>
+                    </div>
+                    <div style={{ marginTop:8 }}><SyncBadge m={post}/></div>
+                  </>
+                ) : (
+                  <div style={{ color:'var(--text3)', fontSize:12 }}>Sem dados ainda</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Clients table */}
       <div className="card" style={{ padding:0, overflow:'hidden' }}>
         <div style={{ padding:'14px 20px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
@@ -673,7 +752,7 @@ function GlobalOverview({ clients, onSelectClient }) {
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
             <thead>
               <tr style={{ borderBottom:'1px solid var(--border)' }}>
-                {['Cliente','Plataformas','Status do Mês','Último Post (Instagram)','Checklist','Calendário',''].map(h => (
+                {['Cliente','Plataformas','Status do Mês','Checklist','Calendário',''].map(h => (
                   <th key={h} style={{ padding:'10px 16px', color:'var(--text2)', fontWeight:600, textAlign:'left', whiteSpace:'nowrap', fontSize:11, letterSpacing:'.04em', textTransform:'uppercase' }}>{h}</th>
                 ))}
               </tr>
@@ -683,7 +762,6 @@ function GlobalOverview({ clients, onSelectClient }) {
                 const calData = c.calendar?.[currentMonth.key] || {};
                 const status = calData.status || 'Não iniciado';
                 const sc = S[status] || S['Não iniciado'];
-                const igMetrics = c.metrics?.instagram || {};
                 const checks = c.checklist || [];
                 const checkDone = checks.filter(x=>x.done).length;
                 const checkTotal = checks.length;
@@ -702,9 +780,6 @@ function GlobalOverview({ clients, onSelectClient }) {
                       </div>
                     </td>
                     <td style={{ padding:'12px 16px' }}><Badge status={status}/></td>
-                    <td style={{ padding:'12px 16px', color:'var(--text2)' }}>
-                      {igMetrics.lastPost ? fmtDate(igMetrics.lastPost) : <span style={{color:'var(--text3)'}}>—</span>}
-                    </td>
                     <td style={{ padding:'12px 16px' }}>
                       {checkTotal > 0 ? (
                         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
@@ -824,6 +899,8 @@ function App() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [syncingClientId, setSyncingClientId] = useState(null);
+  const [syncingAll, setSyncingAll] = useState(false);
   const [selectedId, setSelectedId] = useState(null); // null = global overview
   const [activeTab, setActiveTab] = useState('overview');
   const [modal, setModal] = useState(null);
@@ -876,6 +953,25 @@ function App() {
     setSyncing(false);
   };
 
+  // Pull fresh public metrics for one client from its profile links (sync-social edge function)
+  const syncClient = async (id) => {
+    setSyncingClientId(id);
+    const result = await syncClientNow(id);
+    const { data } = await db.from('social_clients').select('*').eq('id', id).single();
+    if (data) setClients(prev => prev.map(c => c.id === id ? data : c));
+    setSyncingClientId(null);
+    return result;
+  };
+
+  // Pull fresh public metrics for every client (used by the "Sincronizar todos" button)
+  const syncAll = async () => {
+    setSyncingAll(true);
+    await syncAllNow();
+    const { data } = await db.from('social_clients').select('*').order('created_at');
+    if (data) setClients(data);
+    setSyncingAll(false);
+  };
+
   const TABS = [
     { id:'overview',  label:'📊 Visão Geral' },
     { id:'calendar',  label:'📅 Calendário'  },
@@ -903,7 +999,10 @@ function App() {
       />
       <div className="main">
         {!client ? (
-          <GlobalOverview clients={clients} onSelectClient={id=>{setSelectedId(id);setActiveTab('overview');}}/>
+          <GlobalOverview
+            clients={clients} onSelectClient={id=>{setSelectedId(id);setActiveTab('overview');}}
+            onSyncAll={syncAll} syncingAll={syncingAll}
+          />
         ) : (
           <>
             <div style={{ padding:'20px 24px 0', borderBottom:'1px solid var(--border)', position:'sticky', top:0, background:'var(--bg)', zIndex:10 }}>
@@ -931,6 +1030,8 @@ function App() {
               <OverviewTab
                 client={client}
                 onUpdateMetrics={(p, m) => updateClient(selectedId, { metrics:{ ...client.metrics, [p]:m } })}
+                onSync={() => syncClient(selectedId)}
+                syncing={syncingClientId === selectedId}
               />
             )}
             {activeTab==='calendar' && (
